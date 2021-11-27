@@ -15,7 +15,7 @@ class RectanglePackingProblem(NeighborhoodProblem, ConstructionProblem):
     def get_empty_solution(self):
         raise NotImplementedError
 
-    def get_initial_solution(self):
+    def get_arbitrary_solution(self):
         raise NotImplementedError
 
     def get_neighborhood(self, x):

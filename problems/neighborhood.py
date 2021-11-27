@@ -17,7 +17,7 @@ class NeighborhoodProblem(OptProblem):
         raise NotImplementedError
 
     @abstractmethod
-    def get_initial_solution(self):
+    def get_arbitrary_solution(self):
         """Returns an arbitrary initial solution.
 
         :return: feasible initial solution

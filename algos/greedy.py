@@ -1,9 +1,5 @@
-from algos.base import BaseAlgorithm
+from problems.construction import ConstructionProblem
 
 
-class GreedyAlgorithm(BaseAlgorithm):
-
-    def __init__(self, **kwargs):
-        super(GreedyAlgorithm, self).__init__(**kwargs)
-
-        self.current_construction = problem.get_empty_instance()
+def greedy(problem: ConstructionProblem):
+    pass
