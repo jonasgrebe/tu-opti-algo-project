@@ -9,7 +9,7 @@ class NeighborhoodProblem(OptProblem):
 
     @abstractmethod
     def get_neighborhood(self, x):
-        """Returns the neighborhood of feasible instance x
+        """Returns the neighborhood of feasible instance x.
 
         :param x: feasible solution x
         :return: List of (feasible) solutions
@@ -17,8 +17,8 @@ class NeighborhoodProblem(OptProblem):
         raise NotImplementedError
 
     @abstractmethod
-    def get_initial_instance(self):
-        """Returns an initial solution
+    def get_initial_solution(self):
+        """Returns an arbitrary initial solution.
 
         :return: feasible initial solution
         """
