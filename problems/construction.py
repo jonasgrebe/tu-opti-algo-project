@@ -8,16 +8,16 @@ class ConstructionProblem(OptProblem):
         super(ConstructionProblem, self).__init__(**kwargs)
 
     @abstractmethod
-    def get_empty_instance(self):
-        """Returns an instance to start with
+    def get_empty_solution(self):
+        """Returns a solution to start with.
 
         :return: "empty" partial solution
         """
         raise NotImplementedError
 
     @abstractmethod
-    def get_construction_options(self, x):
-        """Takes an instance x and returns the values of all construction options
+    def get_construction_values(self, x):
+        """Takes a solution x and returns the values of all construction options.
 
         :param x: partial solution
         :return: List of construction options
@@ -26,7 +26,7 @@ class ConstructionProblem(OptProblem):
 
     @abstractmethod
     def construct(self, x, i):
-        """Extend current partial solution using the construction option i
+        """Extend current partial solution using the construction option i.
 
         :param x: partial solution
         :param i: index of construction option
