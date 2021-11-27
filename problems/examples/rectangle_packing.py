@@ -1,8 +1,8 @@
 from problems.neighborhood import NeighborhoodProblem
-from problems.construction import ConstructionProblem
+from problems.construction import IndependenceSystemProblem
 
 
-class RectanglePackingProblem(NeighborhoodProblem, ConstructionProblem):
+class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
     def __init__(self, **kwargs):
         super(RectanglePackingProblem, self).__init__(**kwargs)
 

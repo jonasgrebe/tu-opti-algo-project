@@ -2,34 +2,30 @@ from abc import abstractmethod
 from problems.optimization import OptProblem
 
 
-class ConstructionProblem(OptProblem):
+class IndependenceSystemProblem(OptProblem):
 
     def __init__(self, **kwargs):
-        super(ConstructionProblem, self).__init__(**kwargs)
+        super(IndependenceSystemProblem, self).__init__(**kwargs)
 
     @abstractmethod
-    def get_empty_solution(self):
-        """Returns a solution to start with.
+    def get_elements(self):
+        """Returns the elements."""
+        raise NotImplementedError
 
-        :return: "empty" partial solution
+    @abstractmethod
+    def c(self, e):
+        """Takes an element e and returns its value.
+
+        :param e: element
+        :return: value of that element
         """
         raise NotImplementedError
 
     @abstractmethod
-    def get_construction_values(self, x):
-        """Takes a solution x and returns the values of all construction options.
+    def is_independent(self, x):
+        """Takes a set x and returns whether that set is independent.
 
-        :param x: partial solution
-        :return: List of construction options
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def construct(self, x, i):
-        """Extend current partial solution using the construction option i.
-
-        :param x: partial solution
-        :param i: index of construction option
-        :return: (partial) solution
+        :param x: set
+        :return: True iff x is independent
         """
         raise NotImplementedError
