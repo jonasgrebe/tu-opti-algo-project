@@ -6,11 +6,13 @@ NUM_BOX_COLS = 4
 
 
 class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
-    def __init__(self, box_length, num_rects, w_min, w_max, h_min, h_max, **kwargs):
+    def __init__(self, box_length, num_rects, w_min, w_max, h_min, h_max,
+                 neighborhood_relation="geometry_based", **kwargs):
         super(RectanglePackingProblem, self).__init__(is_max=False, **kwargs)
         self.box_length = box_length
         self.num_rects = num_rects
         self.rectangles = None
+        self.neighborhood_relation = neighborhood_relation
         self.__generate(box_length, num_rects, w_min, w_max, h_min, h_max)
 
     def __generate(self, box_length, num_rects, w_min, w_max, h_min, h_max):
@@ -96,10 +98,38 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         return locations, rotations
 
     def get_neighborhood(self, x):
-        raise NotImplementedError
+        if self.neighborhood_relation == "geometry_based":
+            return self.__get_geometry_based_neighborhood(x)
+        else:
+            raise NotImplementedError
 
-    def construct(self, x, i):
-        raise NotImplementedError
+    def __get_geometry_based_neighborhood(self, x):
+        # TODO: define place() method for another geometry based neighborhood relation
+        neighbors = []
+
+        locations, rotations = x
+
+        # Rotations
+        for rect_idx in range(self.num_rects):
+            rotations_mod = rotations.copy()
+            rotations_mod[rect_idx] = ~rotations_mod[rect_idx]
+            solution = (locations.copy(), rotations_mod)
+            if self.is_feasible(solution):
+                neighbors += [solution]
+
+        # Rect movement (by 1, 4 or box_length in any direction)
+        directions = np.array([[1, 0], [0, 1], [-1, 0], [0, -1]])
+        for rect_idx in range(self.num_rects):  # for each rectangle
+            for direction in directions:  # for each direction
+                for distance in [1, 4, self.box_length]:  # for each distance option
+                    locations_mod = locations.copy()
+                    locations_mod[rect_idx] += direction * distance
+
+                    solution = (locations_mod, rotations.copy())
+                    if self.is_feasible(solution):
+                        neighbors += [solution]
+
+        return neighbors
 
     def get_elements(self):
         pass
