@@ -87,6 +87,14 @@ class RectanglePackingGUI:
             top_left = -self.cam_pos // self.config['field_size'] + 1
             bottom_right = (-self.cam_pos + np.asarray([self.area_width, self.area_height])) // self.config['field_size'] + 1
 
+            # highlight non-empty boxes
+            for x in range(top_left[0]-self.problem.box_length, bottom_right[0]+self.problem.box_length):
+                if x % self.problem.box_length == 0:
+                    for y in range(top_left[1]-self.problem.box_length, bottom_right[1]+self.problem.box_length):
+                        if y % self.problem.box_length == 0:
+                            if not self.is_empty_block(x, y):
+                                self.draw_box(x, y)
+
             # Draw grid lines
             for y in range(top_left[1], bottom_right[1]):
                 self.draw_h_line(y, self.colors['grid_lines'])
@@ -114,13 +122,7 @@ class RectanglePackingGUI:
                         w, h = self.problem.rectangles[rect_idx]
                         self.draw_rect(x, y, w, h)
 
-                    # highlight non-empty boxes
-                    for x in range(top_left[0], bottom_right[0]):
-                        if x % self.problem.box_length == 0:
-                            for y in range(top_left[1], bottom_right[1]):
-                                if y % self.problem.box_length == 0:
-                                    if not self.is_empty_block(x, y):
-                                        self.draw_box(x, y)
+
 
             # display current solution value
             textsurface = self.font.render(f'Objective Value: {self.problem.f(self.current_sol)}', False, self.colors['font'])
@@ -159,7 +161,7 @@ class RectanglePackingGUI:
         pygame.draw.rect(self.screen, self.colors['non_empty_boxes'],
                          [self.cam_pos[0] + self.scr_marg_left + self.config['line_width'] + x * self.config['field_size'],
                           self.cam_pos[1] + self.scr_marg_top + self.config['line_width']+ y * self.config['field_size'],
-                          self.problem.box_length * self.config['field_size'] - self.config['line_width'] * 2, self.problem.box_length * self.config['field_size'] - self.config['line_width'] * 2], 1)
+                          self.problem.box_length * self.config['field_size'] - self.config['line_width'] * 2, self.problem.box_length * self.config['field_size'] - self.config['line_width'] * 2], 0)
 
 
     def draw_rect(self, x, y, w, h):
