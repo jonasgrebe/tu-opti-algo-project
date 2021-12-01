@@ -8,7 +8,8 @@ from gui.rectangle_packing import RectanglePackingGUI
 # grid_problem = TwoDGridProblem(f=f, is_max=False)
 # print(local_search(grid_problem))
 
-problem = RectanglePackingProblem(6, 12, 1, 5, 1, 5)
+problem = RectanglePackingProblem(box_length=6, num_rects=12, w_min=1, w_max=5, h_min=1, h_max=5)
+
 gui = RectanglePackingGUI()
 gui.problem = problem
 init_sol = problem.get_arbitrary_solution()
