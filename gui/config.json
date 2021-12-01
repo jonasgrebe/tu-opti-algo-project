@@ -1,0 +1,48 @@
+{
+    "colors": {
+        "ui_bg": [
+            40,
+            40,
+            40
+        ],
+        "grid_bg": [
+            30,
+            30,
+            30
+        ],
+        "grid_lines": [
+            40,
+            40,
+            40
+        ],
+        "box_boundary_lines": [
+            80,
+            80,
+            80
+        ],
+        "rectangles": [
+            240,
+            170,
+            30
+        ],
+        "non_empty_boxes": [
+            0,
+            255,
+            0
+        ],
+
+        "font": [
+            0,
+            255,
+            0
+        ]
+    },
+    "field_size": 30,
+    "window_width": 1200,
+    "window_height": 800,
+    "grid_width": 64,
+    "grid_height": 64,
+    "line_width": 2,
+    "font": "calibri",
+    "font_size": 20
+}
