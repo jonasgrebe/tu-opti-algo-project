@@ -91,8 +91,9 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
 
     def get_arbitrary_solution(self):
         """Returns a solution where each rectangle is placed into an own box (not rotated)."""
-        x_locations = np.arange(self.num_rects) % NUM_BOX_COLS
-        y_locations = np.arange(self.num_rects) // NUM_BOX_COLS
+        num_cols = int(np.ceil(np.sqrt(self.num_rects)))
+        x_locations = np.arange(self.num_rects) % num_cols
+        y_locations = np.arange(self.num_rects) // num_cols
         locations = np.stack([x_locations, y_locations], axis=1) * self.box_length
         rotations = np.zeros(self.num_rects, dtype=np.bool)
         return locations, rotations

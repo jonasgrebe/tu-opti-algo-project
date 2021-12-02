@@ -30,11 +30,15 @@
             50,
             50
         ],
-
-        "font": [
-            0,
+        "hover": [
             255,
-            0
+            255,
+            255
+        ],
+        "font": [
+            220,
+            220,
+            220
         ]
     },
     "field_size": 30,
@@ -43,6 +47,6 @@
     "grid_width": 64,
     "grid_height": 64,
     "line_width": 2,
-    "font": "calibri",
-    "font_size": 20
+    "font": "Copperplate Gothic Bold",
+    "font_size": 40
 }
