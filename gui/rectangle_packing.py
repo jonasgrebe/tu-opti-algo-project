@@ -56,9 +56,10 @@ class RectanglePackingGUI:
     def __render(self):
         self.__init_gui()
 
-        dragging = False
+        dragging_camera = False
         old_mouse_pos = None
-        moving_rect_idx = None
+        selected_rect_idx = None
+        selection_rotated = False
 
         while self.running:
             mouse_pos = np.asarray(pygame.mouse.get_pos())
@@ -77,20 +78,28 @@ class RectanglePackingGUI:
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 2:  # center mousebutton
-                        dragging = True
+                        dragging_camera = True
                         old_mouse_pos = mouse_pos
 
                     elif event.button == 1:  # left mousebutton
-                        if moving_rect_idx is None:
-                            moving_rect_idx = rect_idx
+                        locations, rotations = self.current_sol
+                        if selected_rect_idx is None:
+                            selected_rect_idx = rect_idx
+                            selection_rotated = False
                         else:
-                            locations, rotations = self.current_sol
                             locations_new = locations.copy()
-                            locations_new[moving_rect_idx] = [x, y]
-                            new_solution = (locations_new, rotations)
+                            locations_new[selected_rect_idx] = [x, y]
+                            rotations_new = rotations.copy()
+                            if selection_rotated:
+                                rotations_new[selected_rect_idx] = ~ rotations_new[selected_rect_idx]
+                            new_solution = (locations_new, rotations_new)
                             if self.problem.is_feasible(new_solution):
                                 self.set_current_solution(new_solution)
-                                moving_rect_idx = None
+                                selected_rect_idx = None
+
+                    elif event.button == 3:  # right mousebutton
+                        if selected_rect_idx is not None:
+                            selection_rotated = not selection_rotated
 
                     elif event.button == 4:  # mousewheel up
                         self.zoom *= 1.1
@@ -100,17 +109,15 @@ class RectanglePackingGUI:
 
                 elif event.type == pygame.MOUSEBUTTONUP:
                     if event.button == 2:  # center mousebutton
-                        dragging = False
+                        dragging_camera = False
 
-                elif dragging and event.type == pygame.MOUSEMOTION:
+                elif dragging_camera and event.type == pygame.MOUSEMOTION:
                     shift_delta = mouse_pos - old_mouse_pos
                     self.cam_pos += shift_delta
                     old_mouse_pos = mouse_pos
 
                 elif event.type == pygame.VIDEORESIZE:  # Resize pygame display area on window resize
                     self.resize_window(event.w, event.h)
-
-            # self.screen.fill(self.colors['bg_color'])
 
             # Grid area
             pygame.draw.rect(self.screen, self.colors['grid_bg'],
@@ -125,7 +132,7 @@ class RectanglePackingGUI:
             top_left = top_left.astype(np.int32)
             bottom_right = bottom_right.astype(np.int32)
 
-            # highlight non-empty boxes
+            # Highlight non-empty boxes
             for x in range(top_left[0] - self.problem.box_length, bottom_right[0] + self.problem.box_length):
                 if x % self.problem.box_length == 0:
                     for y in range(top_left[1] - self.problem.box_length, bottom_right[1] + self.problem.box_length):
@@ -154,9 +161,9 @@ class RectanglePackingGUI:
                     for x, y, w, h in self.rect_dims:
                         self.draw_rect(x, y, w, h, color=self.colors['rectangles'])
 
-            self.draw_hover_shape(mouse_pos, moving_rect_idx)
+            self.draw_hover_shape(mouse_pos, selected_rect_idx, selection_rotated)
 
-            # display current solution value
+            # Display current solution value
             if self.current_sol is not None:
                 textsurface = self.font.render(f'Objective Value: {self.problem.f(self.current_sol)}', True,
                                                self.colors['font'])
@@ -206,7 +213,7 @@ class RectanglePackingGUI:
                self.area_height]
         pygame.draw.line(self.screen, color, start, end, self.config['line_width'])
 
-    def draw_hover_shape(self, mouse_pos, rect_idx):
+    def draw_hover_shape(self, mouse_pos, rect_idx, rotated):
         x, y = self.mouse_pos_to_field_coords(mouse_pos)
 
         hover_surface = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
@@ -215,6 +222,8 @@ class RectanglePackingGUI:
 
         if rect_idx is not None:
             w, h = self.rect_dims[rect_idx, 2:4]
+            if rotated:
+                w, h = h, w
         else:
             w, h = 1, 1
 
@@ -241,11 +250,13 @@ class RectanglePackingGUI:
         dims = np.zeros((self.problem.num_rects, 4), dtype=np.int32)
 
         locations, rotations = self.current_sol
+        sizes = self.problem.rectangles
+
         dims[:, 0:2] = locations
-        dims[:, 2:4] = self.problem.rectangles
+        dims[:, 2:4] = sizes
 
         # Swap x and y for rotated rects
-        dims[rotations, 0] = locations[rotations, 1]
-        dims[rotations, 1] = locations[rotations, 0]
+        dims[rotations, 2] = sizes[rotations, 1]
+        dims[rotations, 3] = sizes[rotations, 0]
 
         return dims
