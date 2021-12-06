@@ -11,7 +11,7 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         super(RectanglePackingProblem, self).__init__(is_max=False, **kwargs)
         self.box_length = box_length
         self.num_rects = num_rects
-        self.rectangles = None
+        self.sizes = None
         self.neighborhood_relation = neighborhood_relation
         self.__generate(box_length, num_rects, w_min, w_max, h_min, h_max)
 
@@ -32,12 +32,12 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         # Generate rectangles with uniformly random side lengths (width and height)
         widths = np.random.randint(w_min, w_max, size=num_rects)
         heights = np.random.randint(h_min, h_max, size=num_rects)
-        self.rectangles = np.stack([widths, heights], axis=1)
+        self.sizes = np.stack([widths, heights], axis=1)
 
     def rotate_rect(self, idx):
         """Rotates the rectangle with index idx."""
-        rect = self.rectangles[idx]
-        self.rectangles[idx] = [rect[1], rect[0]]
+        rect = self.sizes[idx]
+        self.sizes[idx] = [rect[1], rect[0]]
 
     def f(self, x):
         """Returns the number of boxes occupied in the current solution.
@@ -48,11 +48,11 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
     def is_feasible(self, x):
         # Collect rectangle properties
         locations, rotations = x
-        rects = self.rectangles.copy()
+        rects = self.sizes.copy()
 
         # Consider all rotations
-        rects[rotations, 0] = self.rectangles[rotations, 1]
-        rects[rotations, 1] = self.rectangles[rotations, 0]
+        rects[rotations, 0] = self.sizes[rotations, 1]
+        rects[rotations, 1] = self.sizes[rotations, 0]
 
         # ---- First, check that all coordinates are non-negative ----
         if np.any(locations < 0):
@@ -135,6 +135,10 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         locations, _ = x
         box_coords = locations // self.box_length
         return set(tuple(map(tuple, box_coords)))
+
+    def is_optimal(self, x):
+        """Returns true if the solution is optimal."""
+        return self.f(x) <= np.ceil(np.sum(self.sizes[:, 0] * self.sizes[:, 1]) / self.box_length ** 2)
 
     def get_elements(self):
         pass

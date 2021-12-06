@@ -166,6 +166,12 @@ class RectanglePackingGUI:
                                                self.colors['font'])
                 self.screen.blit(textsurface, (32, 32))
 
+            # Display if current solution is optimal
+            if self.problem.is_optimal(self.current_sol):
+                textsurface = self.font.render(f'This solution is optimal.', True,
+                                               self.colors['font'])
+                self.screen.blit(textsurface, (32, 64))
+
             # Update the screen
             pygame.display.flip()
             # time.sleep(0.016)
@@ -181,7 +187,7 @@ class RectanglePackingGUI:
 
             for rect_idx in range(self.problem.num_rects):
                 rx, ry = locations_temp[rect_idx]
-                rw, rh = self.problem.rectangles[rect_idx]
+                rw, rh = self.problem.sizes[rect_idx]
 
                 if x <= rx and rx < (x + self.problem.box_length) and y <= ry and ry < (y + self.problem.box_length):
                     return False
@@ -247,7 +253,7 @@ class RectanglePackingGUI:
         dims = np.zeros((self.problem.num_rects, 4), dtype=np.int32)
 
         locations, rotations = self.current_sol
-        sizes = self.problem.rectangles
+        sizes = self.problem.sizes
 
         dims[:, 0:2] = locations
         dims[:, 2:4] = sizes
