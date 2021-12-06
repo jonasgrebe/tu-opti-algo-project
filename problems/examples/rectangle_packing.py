@@ -48,30 +48,31 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
     def is_feasible(self, x):
         # Collect rectangle properties
         locations, rotations = x
-        rects = self.sizes.copy()
+        sizes = self.sizes.copy()
 
         # Consider all rotations
-        rects[rotations, 0] = self.sizes[rotations, 1]
-        rects[rotations, 1] = self.sizes[rotations, 0]
+        sizes[rotations, 0] = self.sizes[rotations, 1]
+        sizes[rotations, 1] = self.sizes[rotations, 0]
 
-        # ---- First, check that all coordinates are non-negative ----
-        if np.any(locations < 0):
-            return False
-
-        # ---- Second, check for any box violation (each rect must lie inside a single box) ----
+        # ---- First, check for any box violation (each rect must lie inside a single box) ----
         locations_rel = locations % self.box_length
-        rect_extensions = locations_rel + rects
-        if np.any(rect_extensions > self.box_length):
+        ends_rel = locations_rel + sizes
+        if np.any(ends_rel > self.box_length):
             return False
 
-        # ---- Third, check that no two rects intersect ----
-        begins = locations
-        ends = locations + rects
+        # ---- Second, check that no two rects intersect ----
+        begins = locations.copy()
+        ends = locations + sizes
 
         # Construct virtual grid world
+        x_min = np.min(ends[:, 0])
+        y_min = np.min(ends[:, 1])
         x_max = np.max(ends[:, 0])
         y_max = np.max(ends[:, 1])
-        grid = np.zeros((x_max, y_max), dtype=np.bool)
+        grid = np.zeros((x_max - x_min, y_max - y_min), dtype=np.bool)
+
+        begins -= np.array([x_min, y_min])
+        ends -= np.array([x_min, y_min])
 
         # Place each single rect into the grid world
         for begin, end in zip(begins, ends):
