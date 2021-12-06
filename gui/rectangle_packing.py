@@ -1,3 +1,5 @@
+import time
+
 import pygame
 import threading
 import numpy as np
@@ -59,6 +61,26 @@ class RectanglePackingGUI:
     def set_current_solution(self, solution):
         self.current_sol = solution
         self.rect_dims = self.get_rect_dimensions()
+
+    def set_and_animate_solution(self, solution):
+        # Identify modified rect
+        current_sol_matrix = np.zeros((self.problem.num_rects, 3))
+        new_sol_matrix = np.zeros((self.problem.num_rects, 3))
+        current_sol_matrix[:, 0:2], current_sol_matrix[:, 2] = self.current_sol
+        new_sol_matrix[:, 0:2], new_sol_matrix[:, 2] = solution
+        differences = np.any(current_sol_matrix != new_sol_matrix, axis=1)
+        changed_rect_idx = np.argmax(differences)
+
+        # Select the rect to change
+        self.selected_rect_idx = changed_rect_idx
+        time.sleep(1)
+
+        # Apply new solution
+        self.set_current_solution(solution)
+        time.sleep(1)
+
+        # Unselect the changed rect
+        self.selected_rect_idx = None
 
     def __render(self):
         self.__init_gui()

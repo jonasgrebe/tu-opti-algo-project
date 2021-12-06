@@ -36,8 +36,8 @@ def local_search(problem: NeighborhoodProblem, gui: RectanglePackingGUI):
         print("neighborhood size:", len(neighborhood))
         print("current value:", current_solution_value)
 
-        gui.set_current_solution(current_solution)
-        time.sleep(2)
+        gui.set_and_animate_solution(current_solution)
+        time.sleep(1)
 
     # Step 3: deliver final solution (local optimum)
     return current_solution
