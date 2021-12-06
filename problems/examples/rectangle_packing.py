@@ -65,8 +65,8 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         ends = locations + sizes
 
         # Construct virtual grid world
-        x_min = np.min(ends[:, 0])
-        y_min = np.min(ends[:, 1])
+        x_min = np.min(begins[:, 0])
+        y_min = np.min(begins[:, 1])
         x_max = np.max(ends[:, 0])
         y_max = np.max(ends[:, 1])
         grid = np.zeros((x_max - x_min, y_max - y_min), dtype=np.bool)

@@ -25,6 +25,11 @@
             170,
             30
         ],
+        "active_rectangle": [
+            250,
+            10,
+            100
+        ],
         "non_empty_boxes": [
             50,
             50,

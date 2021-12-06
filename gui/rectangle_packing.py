@@ -65,9 +65,9 @@ class RectanglePackingGUI:
 
         while self.running:
             mouse_pos = np.asarray(pygame.mouse.get_pos())
-            x, y = self.mouse_pos_to_field_coords(mouse_pos)
+            hover_x, hover_y = self.mouse_pos_to_field_coords(mouse_pos)
 
-            self.__handle_user_input(mouse_pos, x, y)
+            self.__handle_user_input(mouse_pos, hover_x, hover_y)
 
             # Grid area
             pygame.draw.rect(self.screen, self.colors['grid_bg'],
@@ -105,10 +105,12 @@ class RectanglePackingGUI:
 
                 if self.current_sol is not None:
                     # Draw rectangles from current solution
-                    for x, y, w, h in self.rect_dims:
-                        self.draw_rect(x, y, w, h, color=self.colors['rectangles'])
+                    for rect_idx, (x, y, w, h) in enumerate(self.rect_dims):
+                        color = self.colors['active_rectangle'] if rect_idx == self.selected_rect_idx else \
+                            self.colors['rectangles']
+                        self.draw_rect(x, y, w, h, color=color)
 
-            self.draw_hover_shape(mouse_pos)
+            self.draw_hover_shape(hover_x, hover_y)
 
             if self.problem is not None and self.current_sol is not None:
                 self.draw_text_info()
@@ -197,9 +199,7 @@ class RectanglePackingGUI:
                self.area_height]
         pygame.draw.line(self.screen, color, start, end, self.config['line_width'])
 
-    def draw_hover_shape(self, mouse_pos):
-        x, y = self.mouse_pos_to_field_coords(mouse_pos)
-
+    def draw_hover_shape(self, x, y):
         hover_surface = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
         hover_surface.set_alpha(60)
         hover_surface.set_colorkey((0, 0, 0))
