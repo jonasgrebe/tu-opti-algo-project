@@ -1,10 +1,11 @@
 from problems.neighborhood import NeighborhoodProblem
-from gui.rectangle_packing import RectanglePackingGUI
+from gui import BaseGUI
+
 import numpy as np
 import time
 
 
-def local_search(problem: NeighborhoodProblem, gui: RectanglePackingGUI):
+def local_search(problem: NeighborhoodProblem, gui: BaseGUI):
     # Step 1: Start with an arbitrary feasible solution
     current_solution = problem.get_arbitrary_solution()
     assert problem.is_feasible(current_solution)
