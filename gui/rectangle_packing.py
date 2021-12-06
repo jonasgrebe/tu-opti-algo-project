@@ -6,11 +6,18 @@ import json
 
 class RectanglePackingGUI:
     def __init__(self):
+        # Problem constants
         self.problem = None
         self.current_sol = None
         self.rect_dims = None
         self.search = None  # the search algorithm routine
+
+        # GUI constants
         self.running = True
+        self.dragging_camera = False
+        self.old_mouse_pos = None
+        self.selected_rect_idx = None
+        self.selection_rotated = False
 
         with open("gui/config.json") as json_data_file:
             self.config = json.load(json_data_file)
@@ -56,68 +63,11 @@ class RectanglePackingGUI:
     def __render(self):
         self.__init_gui()
 
-        dragging_camera = False
-        old_mouse_pos = None
-        selected_rect_idx = None
-        selection_rotated = False
-
         while self.running:
             mouse_pos = np.asarray(pygame.mouse.get_pos())
             x, y = self.mouse_pos_to_field_coords(mouse_pos)
-            rect_idx = self.get_rect_idx_at(x, y)
-            if rect_idx is not None:
-                pygame.mouse.set_cursor(*pygame.cursors.broken_x)
-            else:
-                pygame.mouse.set_cursor(*pygame.cursors.arrow)
 
-            # Handle user input
-            for event in pygame.event.get():
-                # Did the user click the window close button?
-                if event.type == pygame.QUIT:
-                    self.running = False
-
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 2:  # center mousebutton
-                        dragging_camera = True
-                        old_mouse_pos = mouse_pos
-
-                    elif event.button == 1:  # left mousebutton
-                        locations, rotations = self.current_sol
-                        if selected_rect_idx is None:
-                            selected_rect_idx = rect_idx
-                            selection_rotated = False
-                        else:
-                            locations_new = locations.copy()
-                            locations_new[selected_rect_idx] = [x, y]
-                            rotations_new = rotations.copy()
-                            if selection_rotated:
-                                rotations_new[selected_rect_idx] = ~ rotations_new[selected_rect_idx]
-                            new_solution = (locations_new, rotations_new)
-                            if self.problem.is_feasible(new_solution):
-                                self.set_current_solution(new_solution)
-                                selected_rect_idx = None
-
-                    elif event.button == 3:  # right mousebutton
-                        if selected_rect_idx is not None:
-                            selection_rotated = not selection_rotated
-
-                    elif event.button == 4:  # mousewheel up
-                        self.zoom *= 1.1
-
-                    elif event.button == 5:  # mousewheel down
-                        self.zoom /= 1.1
-
-                elif event.type == pygame.MOUSEBUTTONUP:
-                    if event.button == 2:  # center mousebutton
-                        dragging_camera = False
-
-                elif dragging_camera and event.type == pygame.MOUSEMOTION:
-                    shift_delta = mouse_pos - old_mouse_pos
-                    self.cam_pos += shift_delta
-                    old_mouse_pos = mouse_pos
-
-                elif event.type == pygame.VIDEORESIZE:  # Resize pygame display area on window resize
-                    self.resize_window(event.w, event.h)
+            self.__handle_user_input(mouse_pos, x, y)
 
             # Grid area
             pygame.draw.rect(self.screen, self.colors['grid_bg'],
@@ -145,7 +95,7 @@ class RectanglePackingGUI:
                 self.draw_v_line(x, self.colors['grid_lines'])
 
             if self.problem is not None:
-                # Draw box boundaries
+                # Draw box boundary grid lines
                 for y in range(top_left[1], bottom_right[1]):
                     if y % self.problem.box_length == 0:
                         self.draw_h_line(y, self.colors['box_boundary_lines'])
@@ -158,40 +108,71 @@ class RectanglePackingGUI:
                     for x, y, w, h in self.rect_dims:
                         self.draw_rect(x, y, w, h, color=self.colors['rectangles'])
 
-            self.draw_hover_shape(mouse_pos, selected_rect_idx, selection_rotated)
+            self.draw_hover_shape(mouse_pos)
 
-            # Display current solution value
-            if self.current_sol is not None:
-                textsurface = self.font.render(f'Objective Value: {self.problem.f(self.current_sol)}', True,
-                                               self.colors['font'])
-                self.screen.blit(textsurface, (32, 32))
-
-            # Display if current solution is optimal
-            if self.problem.is_optimal(self.current_sol):
-                textsurface = self.font.render(f'This solution is optimal.', True,
-                                               self.colors['font'])
-                self.screen.blit(textsurface, (32, 64))
+            if self.problem is not None and self.current_sol is not None:
+                self.draw_text_info()
 
             # Update the screen
             pygame.display.flip()
-            # time.sleep(0.016)
 
         pygame.quit()
 
-    def is_empty_block(self, x, y):
-        if self.current_sol is not None:
-            locations, rotations = self.current_sol
-            locations_temp = locations.copy()
-            locations_temp[rotations, 0] = locations[rotations, 1]
-            locations_temp[rotations, 1] = locations[rotations, 0]
+    def __handle_user_input(self, mouse_pos, x, y):
+        rect_idx = self.get_rect_idx_at(x, y)
 
-            for rect_idx in range(self.problem.num_rects):
-                rx, ry = locations_temp[rect_idx]
-                rw, rh = self.problem.sizes[rect_idx]
+        if rect_idx is not None:
+            pygame.mouse.set_cursor(*pygame.cursors.broken_x)
+        else:
+            pygame.mouse.set_cursor(*pygame.cursors.arrow)
 
-                if x <= rx and rx < (x + self.problem.box_length) and y <= ry and ry < (y + self.problem.box_length):
-                    return False
-        return True
+        for event in pygame.event.get():
+            # Did the user click the window close button?
+            if event.type == pygame.QUIT:
+                self.running = False
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 2:  # center mousebutton
+                    self.dragging_camera = True
+                    self.old_mouse_pos = mouse_pos
+
+                elif event.button == 1:  # left mousebutton
+                    locations, rotations = self.current_sol
+                    if self.selected_rect_idx is None:
+                        self.selected_rect_idx = rect_idx
+                        self.selection_rotated = False
+                    else:
+                        locations_new = locations.copy()
+                        locations_new[self.selected_rect_idx] = [x, y]
+                        rotations_new = rotations.copy()
+                        if self.selection_rotated:
+                            rotations_new[self.selected_rect_idx] = ~ rotations_new[self.selected_rect_idx]
+                        new_solution = (locations_new, rotations_new)
+                        if self.problem.is_feasible(new_solution):
+                            self.set_current_solution(new_solution)
+                            self.selected_rect_idx = None
+
+                elif event.button == 3:  # right mousebutton
+                    if self.selected_rect_idx is not None:
+                        self.selection_rotated = not self.selection_rotated
+
+                elif event.button == 4:  # mousewheel up
+                    self.zoom *= 1.1
+
+                elif event.button == 5:  # mousewheel down
+                    self.zoom /= 1.1
+
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 2:  # center mousebutton
+                    self.dragging_camera = False
+
+            elif self.dragging_camera and event.type == pygame.MOUSEMOTION:
+                shift_delta = mouse_pos - self.old_mouse_pos
+                self.cam_pos += shift_delta
+                self.old_mouse_pos = mouse_pos
+
+            elif event.type == pygame.VIDEORESIZE:  # Resize pygame display area on window resize
+                self.resize_window(event.w, event.h)
 
     def draw_rect(self, x, y, w, h, color, surface=None):
         if surface is None:
@@ -216,22 +197,34 @@ class RectanglePackingGUI:
                self.area_height]
         pygame.draw.line(self.screen, color, start, end, self.config['line_width'])
 
-    def draw_hover_shape(self, mouse_pos, rect_idx, rotated):
+    def draw_hover_shape(self, mouse_pos):
         x, y = self.mouse_pos_to_field_coords(mouse_pos)
 
         hover_surface = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
         hover_surface.set_alpha(60)
         hover_surface.set_colorkey((0, 0, 0))
 
-        if rect_idx is not None:
-            w, h = self.rect_dims[rect_idx, 2:4]
-            if rotated:
+        if self.selected_rect_idx is not None:
+            w, h = self.rect_dims[self.selected_rect_idx, 2:4]
+            if self.selection_rotated:
                 w, h = h, w
         else:
             w, h = 1, 1
 
         self.draw_rect(x, y, w, h, self.colors['hover'], surface=hover_surface)
         self.screen.blit(hover_surface, (0, 0))
+
+    def draw_text_info(self):
+        # Display current solution value
+        textsurface = self.font.render(f'Objective Value: {self.problem.f(self.current_sol)}', True,
+                                       self.colors['font'])
+        self.screen.blit(textsurface, (32, 32))
+
+        # Display if current solution is optimal
+        if self.problem.is_optimal(self.current_sol):
+            textsurface = self.font.render(f'This solution is optimal.', True,
+                                           self.colors['font'])
+            self.screen.blit(textsurface, (32, 70))
 
     def mouse_pos_to_field_coords(self, mouse_pos):
         field_y = mouse_pos[1] - self.scr_marg_top - self.cam_pos[1]
