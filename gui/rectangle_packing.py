@@ -133,13 +133,10 @@ class RectanglePackingGUI:
             bottom_right = bottom_right.astype(np.int32)
 
             # Highlight non-empty boxes
-            for x in range(top_left[0] - self.problem.box_length, bottom_right[0] + self.problem.box_length):
-                if x % self.problem.box_length == 0:
-                    for y in range(top_left[1] - self.problem.box_length, bottom_right[1] + self.problem.box_length):
-                        if y % self.problem.box_length == 0:
-                            if not self.is_empty_block(x, y):
-                                l = self.problem.box_length
-                                self.draw_rect(x, y, l, l, color=self.colors['non_empty_boxes'])
+            l = self.problem.box_length
+            occupied_boxes = self.problem.get_occupied_boxes(self.current_sol)
+            for (x, y) in occupied_boxes:
+                self.draw_rect(x * l, y * l, l, l, color=self.colors['non_empty_boxes'])
 
             # Draw grid lines
             for y in range(top_left[1], bottom_right[1]):

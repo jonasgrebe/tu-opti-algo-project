@@ -43,9 +43,7 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         """Returns the number of boxes occupied in the current solution.
         Warning: Only defined for feasible solutions! Unfeasible solutions will yield
         invalid values."""
-        locations, _ = x
-        box_coords = locations // self.box_length
-        return len(set(tuple(map(tuple, box_coords))))
+        return len(self.get_occupied_boxes(x))
 
     def is_feasible(self, x):
         # Collect rectangle properties
@@ -131,6 +129,12 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
                         neighbors += [solution]
 
         return neighbors
+
+    def get_occupied_boxes(self, x):
+        """Returns the coordinates of all occupied boxes as a set for a given solution x."""
+        locations, _ = x
+        box_coords = locations // self.box_length
+        return set(tuple(map(tuple, box_coords)))
 
     def get_elements(self):
         pass
