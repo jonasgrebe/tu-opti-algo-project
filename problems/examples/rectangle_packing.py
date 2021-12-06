@@ -11,9 +11,15 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         super(RectanglePackingProblem, self).__init__(is_max=False, **kwargs)
         self.box_length = box_length
         self.num_rects = num_rects
-        self.sizes = None
         self.neighborhood_relation = neighborhood_relation
         self.__generate(box_length, num_rects, w_min, w_max, h_min, h_max)
+
+        # Compute the lower bound for the minimum
+        oversize = self.box_length // 2
+        top_dog = np.all(self.sizes > oversize, axis=1)
+        num_top_dogs = np.sum(top_dog)  # each top dog rectangle requires an own box (no two top dogs in one rectangle)
+        min_box_required = np.ceil(np.sum(self.sizes[:, 0] * self.sizes[:, 1]) / self.box_length ** 2)
+        self.minimum_lower_bound = max(min_box_required, num_top_dogs)
 
     def __generate(self, box_length, num_rects, w_min, w_max, h_min, h_max):
         """Generates a new problem instance.
@@ -139,7 +145,7 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
 
     def is_optimal(self, x):
         """Returns true if the solution is optimal."""
-        return self.f(x) <= np.ceil(np.sum(self.sizes[:, 0] * self.sizes[:, 1]) / self.box_length ** 2)
+        return self.f(x) <= self.minimum_lower_bound
 
     def get_elements(self):
         pass
