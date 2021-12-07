@@ -33,7 +33,7 @@ class RectanglePackingGUI:
 
     @property
     def field_size(self):
-        return self.config['field_size'] * self.zoom
+        return np.round(self.config['field_size'] * self.zoom)
 
     def __init_gui(self):
         pygame.init()
@@ -133,10 +133,12 @@ class RectanglePackingGUI:
                         self.selection_rotated = not self.selection_rotated
 
                 elif event.button == 4:  # mousewheel up
-                    self.zoom *= 1.1
+                    self.zoom = min(self.zoom * 1.1, 3)
+                    print(self.zoom)
 
                 elif event.button == 5:  # mousewheel down
-                    self.zoom /= 1.1
+                    self.zoom = max(self.zoom / 1.1, 0.25)
+                    print(self.zoom)
 
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 2:  # center mousebutton
