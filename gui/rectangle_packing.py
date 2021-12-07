@@ -28,9 +28,6 @@ class RectanglePackingGUI:
         self.render_thread = threading.Thread(target=self.__run)
         self.render_thread.start()
 
-        self.clock = pygame.time.Clock()
-        self.fps = 60
-
 
     @property
     def colors(self):
