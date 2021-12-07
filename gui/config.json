@@ -21,6 +21,11 @@
             80
         ],
         "rectangles": [
+            150,
+            150,
+            150
+        ],
+        "rectangles_search": [
             240,
             170,
             30
