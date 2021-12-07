@@ -230,11 +230,14 @@ class RectanglePackingGUI:
 
         mouse_pos = np.asarray(pygame.mouse.get_pos())
         x, y = self.mouse_pos_to_field_coords(mouse_pos)
+        rect_under_mouse = self.get_rect_idx_at(x, y)
 
         if self.selected_rect_idx is not None:
             w, h = self.rect_dims[self.selected_rect_idx, 2:4]
             if self.selection_rotated:
                 w, h = h, w
+        elif rect_under_mouse is not None:
+            x, y, w, h = self.rect_dims[rect_under_mouse]
         else:
             w, h = 1, 1
 
