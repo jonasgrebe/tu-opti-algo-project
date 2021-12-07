@@ -24,7 +24,7 @@ class RectanglePackingGUI:
         with open("gui/config.json") as json_data_file:
             self.config = json.load(json_data_file)
 
-        self.render_thread = threading.Thread(target=self.__render)
+        self.render_thread = threading.Thread(target=self.__run)
         self.render_thread.start()
 
     @property
@@ -82,67 +82,19 @@ class RectanglePackingGUI:
         # Unselect the changed rect
         self.selected_rect_idx = None
 
-    def __render(self):
+    def __run(self):
         self.__init_gui()
 
         while self.running:
-            mouse_pos = np.asarray(pygame.mouse.get_pos())
-            hover_x, hover_y = self.mouse_pos_to_field_coords(mouse_pos)
-
-            self.__handle_user_input(mouse_pos, hover_x, hover_y)
-
-            # Grid area
-            pygame.draw.rect(self.screen, self.colors['grid_bg'],
-                             [self.scr_marg_left - self.config['line_width'],
-                              self.scr_marg_top - self.config['line_width'],
-                              self.area_width, self.area_height])
-
-            # Get visible grid boundary
-            top_left = -self.cam_pos // self.field_size + 1
-            bottom_right = (-self.cam_pos + np.asarray([self.area_width, self.area_height])) // self.field_size + 1
-
-            top_left = top_left.astype(np.int32)
-            bottom_right = bottom_right.astype(np.int32)
-
-            # Highlight non-empty boxes
-            l = self.problem.box_length
-            occupied_boxes = self.problem.get_occupied_boxes(self.current_sol)
-            for (x, y) in occupied_boxes:
-                self.draw_rect(x * l, y * l, l, l, color=self.colors['non_empty_boxes'])
-
-            # Draw grid lines
-            for y in range(top_left[1], bottom_right[1]):
-                self.draw_h_line(y, self.colors['grid_lines'])
-            for x in range(top_left[0], bottom_right[0]):
-                self.draw_v_line(x, self.colors['grid_lines'])
-
-            if self.problem is not None:
-                # Draw box boundary grid lines
-                for y in range(top_left[1], bottom_right[1]):
-                    if y % self.problem.box_length == 0:
-                        self.draw_h_line(y, self.colors['box_boundary_lines'])
-                for x in range(top_left[0], bottom_right[0]):
-                    if x % self.problem.box_length == 0:
-                        self.draw_v_line(x, self.colors['box_boundary_lines'])
-
-                if self.current_sol is not None:
-                    # Draw rectangles from current solution
-                    for rect_idx, (x, y, w, h) in enumerate(self.rect_dims):
-                        color = self.colors['active_rectangle'] if rect_idx == self.selected_rect_idx else \
-                            self.colors['rectangles']
-                        self.draw_rect(x, y, w, h, color=color)
-
-            self.draw_hover_shape(hover_x, hover_y)
-
-            if self.problem is not None and self.current_sol is not None:
-                self.draw_text_info()
-
-            # Update the screen
-            pygame.display.flip()
+            self.__handle_user_input()
+            self.__render()
 
         pygame.quit()
 
-    def __handle_user_input(self, mouse_pos, x, y):
+    def __handle_user_input(self):
+        mouse_pos = np.asarray(pygame.mouse.get_pos())
+        x, y = self.mouse_pos_to_field_coords(mouse_pos)
+
         rect_idx = self.get_rect_idx_at(x, y)
 
         if rect_idx is not None:
@@ -198,6 +150,56 @@ class RectanglePackingGUI:
             elif event.type == pygame.VIDEORESIZE:  # Resize pygame display area on window resize
                 self.resize_window(event.w, event.h)
 
+    def __render(self):
+        # Grid area
+        pygame.draw.rect(self.screen, self.colors['grid_bg'],
+                         [self.scr_marg_left - self.config['line_width'],
+                          self.scr_marg_top - self.config['line_width'],
+                          self.area_width, self.area_height])
+
+        # Get visible grid boundary
+        top_left = -self.cam_pos // self.field_size + 1
+        bottom_right = (-self.cam_pos + np.asarray([self.area_width, self.area_height])) // self.field_size + 1
+
+        top_left = top_left.astype(np.int32)
+        bottom_right = bottom_right.astype(np.int32)
+
+        # Highlight non-empty boxes
+        l = self.problem.box_length
+        occupied_boxes = self.problem.get_occupied_boxes(self.current_sol)
+        for (x, y) in occupied_boxes:
+            self.draw_rect(x * l, y * l, l, l, color=self.colors['non_empty_boxes'])
+
+        # Draw grid lines
+        for y in range(top_left[1], bottom_right[1]):
+            self.draw_h_line(y, self.colors['grid_lines'])
+        for x in range(top_left[0], bottom_right[0]):
+            self.draw_v_line(x, self.colors['grid_lines'])
+
+        if self.problem is not None:
+            # Draw box boundary grid lines
+            for y in range(top_left[1], bottom_right[1]):
+                if y % self.problem.box_length == 0:
+                    self.draw_h_line(y, self.colors['box_boundary_lines'])
+            for x in range(top_left[0], bottom_right[0]):
+                if x % self.problem.box_length == 0:
+                    self.draw_v_line(x, self.colors['box_boundary_lines'])
+
+            if self.current_sol is not None:
+                # Draw rectangles from current solution
+                for rect_idx, (x, y, w, h) in enumerate(self.rect_dims):
+                    color = self.colors['active_rectangle'] if rect_idx == self.selected_rect_idx else \
+                        self.colors['rectangles']
+                    self.draw_rect(x, y, w, h, color=color)
+
+        self.draw_hover_shape()
+
+        if self.problem is not None and self.current_sol is not None:
+            self.draw_text_info()
+
+        # Update the screen
+        pygame.display.flip()
+
     def draw_rect(self, x, y, w, h, color, surface=None):
         if surface is None:
             surface = self.screen
@@ -221,10 +223,13 @@ class RectanglePackingGUI:
                self.area_height]
         pygame.draw.line(self.screen, color, start, end, self.config['line_width'])
 
-    def draw_hover_shape(self, x, y):
+    def draw_hover_shape(self):
         hover_surface = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
         hover_surface.set_alpha(60)
         hover_surface.set_colorkey((0, 0, 0))
+
+        mouse_pos = np.asarray(pygame.mouse.get_pos())
+        x, y = self.mouse_pos_to_field_coords(mouse_pos)
 
         if self.selected_rect_idx is not None:
             w, h = self.rect_dims[self.selected_rect_idx, 2:4]
