@@ -14,7 +14,7 @@ def local_search(problem: NeighborhoodProblem, gui: BaseGUI):
     gui.set_current_solution(current_solution)
 
     # Step 2: While there is a better solution nearby, go to that solution
-    while True:
+    while gui.is_searching:
         neighborhood = problem.get_neighborhood(current_solution)
 
         neighborhood_values = [problem.f(neighbor_solution) for neighbor_solution in neighborhood]

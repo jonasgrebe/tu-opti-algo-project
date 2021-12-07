@@ -6,6 +6,7 @@ import threading
 import numpy as np
 import json
 
+from algos import local_search
 
 class RectanglePackingGUI:
     def __init__(self):
@@ -13,7 +14,7 @@ class RectanglePackingGUI:
         self.problem = None
         self.current_sol = None
         self.rect_dims = None
-        self.search = None  # the search algorithm routine
+        self.search = local_search  # the search algorithm routine
 
         # GUI constants
         self.running = True
@@ -27,6 +28,9 @@ class RectanglePackingGUI:
 
         self.render_thread = threading.Thread(target=self.__run)
         self.render_thread.start()
+
+        self.is_searching = False
+        self.search_thread = None
 
 
     @property
@@ -63,7 +67,6 @@ class RectanglePackingGUI:
         def button_onmouseleave(w) -> None:
             w.set_background_color((0, 0, 0))
 
-
         theme = pygame_menu.Theme(
             background_color=pygame_menu.themes.TRANSPARENT_COLOR,
             title=False,
@@ -81,7 +84,10 @@ class RectanglePackingGUI:
         )
 
         def generate_instance():
-            print("GENERATE INSTANCE")
+            self.is_searching = False # IMPORTANT!
+            self.problem.generate()
+            init_sol = self.problem.get_arbitrary_solution()
+            self.set_current_solution(init_sol)
 
         btn_generate = self.menu.add.button(
             'Generate Instance',
@@ -97,7 +103,9 @@ class RectanglePackingGUI:
         btn_generate.set_onmouseleave(lambda: button_onmouseleave(btn_generate))
 
         def run_search():
-            print("RUN SEARCH")
+            self.is_searching = True # IMPORTANT!
+            self.search_thread = threading.Thread(target=self.search, args=(self.problem, self))
+            self.search_thread.start()
 
         btn_search = self.menu.add.button(
             'Run Search',
@@ -111,6 +119,22 @@ class RectanglePackingGUI:
         btn_search.translate(-50, -200)
         btn_search.set_onmouseover(lambda: button_onmouseover(btn_search))
         btn_search.set_onmouseleave(lambda: button_onmouseleave(btn_search))
+
+        def clear_rects():
+            self.problem.sizes = np.array([])
+
+        btn_clear = self.menu.add.button(
+            'Clear',
+            run_search,
+            button_id='clear',
+            font_size=20,
+            shadow_width=10,
+            align=pygame_menu.locals.ALIGN_RIGHT,
+            background_color=(0, 0, 0)
+        )
+        btn_clear.translate(-50, -200)
+        btn_clear.set_onmouseover(lambda: button_onmouseover(btn_clear))
+        btn_clear.set_onmouseleave(lambda: button_onmouseleave(btn_clear))
 
         self.menu.center_content()
 
