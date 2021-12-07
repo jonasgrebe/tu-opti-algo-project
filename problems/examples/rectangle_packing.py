@@ -45,7 +45,6 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
     def generate(self):
         self.__generate(self.box_length, self.num_rects, self.w_min, self.w_max, self.h_min, self.h_max)
 
-
     def rotate_rect(self, idx):
         """Rotates the rectangle with index idx."""
         rect = self.sizes[idx]
@@ -58,7 +57,7 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         return len(self.get_occupied_boxes(x))
 
     def h(self, x):
-        return self.rect_cnt_heuristic(x)
+        return self.box_occupancy_heuristic(x)
 
     def rect_cnt_heuristic(self, x):
         """Depends on rectangle count per box."""
@@ -80,7 +79,22 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
 
     def box_occupancy_heuristic(self, x):
         """Depends on occupancy inside box."""
-        pass
+        boxes = self.get_occupied_boxes(x)
+        locations, _ = x
+        box_coords = locations // self.box_length
+
+        # Count occupancy per box
+        occupancy = {}
+        for box in boxes:
+            occupancy[box] = 0
+        for rect_idx, b in enumerate(box_coords):
+            occupancy[tuple(b)] += self.sizes[rect_idx, 0] * self.sizes[rect_idx, 1]
+
+        cost = 0
+        box_capacity = self.box_length ** 2
+        for box in boxes:
+            cost += 1 + (occupancy[box] / box_capacity - 1) ** 3
+        return cost
 
     def is_feasible(self, x):
         # Collect rectangle properties
@@ -205,7 +219,7 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
 
         # Place each single rect into the virtual box
         for (x, y), (w, h) in zip(locations_rel, sizes[inside_target_box]):
-            region_to_place = virtual_box[x:(x+w), y:(y+h)]
+            region_to_place = virtual_box[x:(x + w), y:(y + h)]
             region_to_place[:] = 1
 
         # Try to place the new rect into that box
@@ -216,12 +230,13 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
 
             for x in range(self.box_length - w + 1):
                 for y in range(self.box_length - h + 1):
-                    region_to_place = virtual_box[x:(x+w), y:(y+h)]
+                    region_to_place = virtual_box[x:(x + w), y:(y + h)]
 
                     if not np.any(region_to_place):
                         # We found a valid placement
                         new_locations = locations.copy()
-                        new_locations[rect_idx] = [target_box[0] * self.box_length + x, target_box[1] * self.box_length + y]
+                        new_locations[rect_idx] = [target_box[0] * self.box_length + x,
+                                                   target_box[1] * self.box_length + y]
                         new_rotations = rotations.copy()
                         new_rotations[rect_idx] = rotated
                         return new_locations, new_rotations
