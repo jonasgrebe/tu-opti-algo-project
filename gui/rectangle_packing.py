@@ -139,6 +139,9 @@ class RectanglePackingGUI(BaseGUI):
         self.current_sol = solution
         self.rect_dims = self.get_rect_dimensions()
 
+    def get_current_solution(self):
+        return self.current_sol
+
     def set_and_animate_solution(self, solution):
         # Identify modified rect
         current_sol_matrix = np.zeros((self.problem.num_rects, 3))

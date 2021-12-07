@@ -7,11 +7,8 @@ import time
 
 def local_search(problem: NeighborhoodProblem, gui: BaseGUI):
     # Step 1: Start with an arbitrary feasible solution
-    current_solution = problem.get_arbitrary_solution()
-    assert problem.is_feasible(current_solution)
+    current_solution = gui.get_current_solution()
     current_solution_value = problem.h(current_solution)
-
-    gui.set_current_solution(current_solution)
 
     # Step 2: While there is a better solution nearby, go to that solution
     while gui.is_searching:
