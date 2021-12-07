@@ -1,6 +1,7 @@
 import time
 
 import pygame
+import pygame_menu
 import threading
 import numpy as np
 import json
@@ -26,6 +27,10 @@ class RectanglePackingGUI:
 
         self.render_thread = threading.Thread(target=self.__run)
         self.render_thread.start()
+
+        self.clock = pygame.time.Clock()
+        self.fps = 60
+
 
     @property
     def colors(self):
@@ -53,10 +58,72 @@ class RectanglePackingGUI:
         self.cam_pos = np.array([0, 0])
         self.zoom = 1.0
 
+    def __setup_menu(self):
+
+        def button_onmouseover(w) -> None:
+            w.set_background_color((100, 100, 100))
+
+        def button_onmouseleave(w) -> None:
+            w.set_background_color((0, 0, 0))
+
+
+        theme = pygame_menu.Theme(
+            background_color=pygame_menu.themes.TRANSPARENT_COLOR,
+            title=False,
+            widget_font=pygame_menu.font.FONT_FIRACODE,
+            widget_font_color=(255, 255, 255),
+            widget_margin=(0, 15),
+            widget_selection_effect=pygame_menu.widgets.NoneSelection()
+        )
+        self.menu = pygame_menu.Menu(
+            width=240,
+            height=self.screen.get_height(),
+            mouse_motion_selection=True,
+            theme=theme,
+            title='',
+        )
+
+        def generate_instance():
+            print("GENERATE INSTANCE")
+
+        btn_generate = self.menu.add.button(
+            'Generate Instance',
+            generate_instance,
+            button_id='generate_instance',
+            font_size=20,
+            shadow_width=10,
+            align=pygame_menu.locals.ALIGN_RIGHT,
+            background_color=(0, 0, 0)
+        )
+        btn_generate.translate(-50, -200)
+        btn_generate.set_onmouseover(lambda: button_onmouseover(btn_generate))
+        btn_generate.set_onmouseleave(lambda: button_onmouseleave(btn_generate))
+
+        def run_search():
+            print("RUN SEARCH")
+
+        btn_search = self.menu.add.button(
+            'Run Search',
+            run_search,
+            button_id='run_search',
+            font_size=20,
+            shadow_width=10,
+            align=pygame_menu.locals.ALIGN_RIGHT,
+            background_color=(0, 0, 0)
+        )
+        btn_search.translate(-50, -200)
+        btn_search.set_onmouseover(lambda: button_onmouseover(btn_search))
+        btn_search.set_onmouseleave(lambda: button_onmouseleave(btn_search))
+
+        self.menu.center_content()
+
+
     def resize_window(self, w, h):
         pygame.display.set_mode((w, h), pygame.RESIZABLE)
         self.area_width = self.screen.get_width()
         self.area_height = self.screen.get_height()
+
+        self.menu.resize(w, h, position=(1, 1, False))
 
     def set_current_solution(self, solution):
         self.current_sol = solution
@@ -84,6 +151,7 @@ class RectanglePackingGUI:
 
     def __run(self):
         self.__init_gui()
+        self.__setup_menu()
 
         while self.running:
             self.__handle_user_input()
@@ -102,7 +170,12 @@ class RectanglePackingGUI:
         else:
             pygame.mouse.set_cursor(*pygame.cursors.arrow)
 
-        for event in pygame.event.get():
+        events = pygame.event.get()
+        if self.menu.is_enabled():
+            self.menu.update(events)
+
+        for event in events:
+
             # Did the user click the window close button?
             if event.type == pygame.QUIT:
                 self.running = False
@@ -152,6 +225,7 @@ class RectanglePackingGUI:
             elif event.type == pygame.VIDEORESIZE:  # Resize pygame display area on window resize
                 self.resize_window(event.w, event.h)
 
+
     def __render(self):
         # Grid area
         pygame.draw.rect(self.screen, self.colors['grid_bg'],
@@ -198,6 +272,9 @@ class RectanglePackingGUI:
 
         if self.problem is not None and self.current_sol is not None:
             self.draw_text_info()
+
+        if self.menu.is_enabled():
+            self.menu.draw(self.screen)
 
         # Update the screen
         pygame.display.flip()
