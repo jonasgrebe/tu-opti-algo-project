@@ -17,6 +17,15 @@ class OptProblem(AbstractClass):
         raise NotImplementedError
 
     @abstractmethod
+    def h(self, x):
+        """Heuristic function, can be used instead of the objective function.
+
+        :param x: the solution to evaluate
+        :return: the value of x
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def is_feasible(self, x):
         """Returns whether x is a feasible solution or not.
 

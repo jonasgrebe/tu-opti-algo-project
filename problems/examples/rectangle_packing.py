@@ -57,6 +57,31 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         invalid values."""
         return len(self.get_occupied_boxes(x))
 
+    def h(self, x):
+        return self.rect_cnt_heuristic(x)
+
+    def rect_cnt_heuristic(self, x):
+        """Depends on rectangle count per box."""
+        boxes = self.get_occupied_boxes(x)
+        locations, _ = x
+        box_coords = locations // self.box_length
+
+        # Count rectangles per box
+        rect_cnt = {}
+        for box in boxes:
+            rect_cnt[box] = 0
+        for b in box_coords:
+            rect_cnt[tuple(b)] += 1
+
+        cost = 0
+        for box in boxes:
+            cost += 1 - 0.5 ** rect_cnt[box]
+        return cost
+
+    def box_occupancy_heuristic(self, x):
+        """Depends on occupancy inside box."""
+        pass
+
     def is_feasible(self, x):
         # Collect rectangle properties
         locations, rotations = x

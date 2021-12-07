@@ -9,7 +9,7 @@ def local_search(problem: NeighborhoodProblem, gui: BaseGUI):
     # Step 1: Start with an arbitrary feasible solution
     current_solution = problem.get_arbitrary_solution()
     assert problem.is_feasible(current_solution)
-    current_solution_value = problem.f(current_solution)
+    current_solution_value = problem.h(current_solution)
 
     gui.set_current_solution(current_solution)
 
@@ -17,7 +17,7 @@ def local_search(problem: NeighborhoodProblem, gui: BaseGUI):
     while gui.is_searching:
         neighborhood = problem.get_neighborhood(current_solution)
 
-        neighborhood_values = [problem.f(neighbor_solution) for neighbor_solution in neighborhood]
+        neighborhood_values = [problem.h(neighbor_solution) for neighbor_solution in neighborhood]
 
         # Degree of freedom: use best neighbor
         if problem.is_max:
@@ -35,11 +35,10 @@ def local_search(problem: NeighborhoodProblem, gui: BaseGUI):
 
         # print("current_solution:", current_solution)
         print("neighborhood size:", len(neighborhood))
-        print("current value:", current_solution_value)
 
         if gui.is_searching:
             gui.set_and_animate_solution(current_solution)
-        time.sleep(1)
+        # time.sleep(1)
 
     # tell gui that search is over
     gui.is_searching = False

@@ -150,11 +150,11 @@ class RectanglePackingGUI(BaseGUI):
 
         # Select the rect to change
         self.selected_rect_idx = changed_rect_idx
-        time.sleep(0.1)
+        time.sleep(0.5)
 
         # Apply new solution
         self.set_current_solution(solution)
-        time.sleep(0.1)
+        time.sleep(0.5)
 
         # Unselect the changed rect
         self.selected_rect_idx = None
@@ -333,15 +333,19 @@ class RectanglePackingGUI(BaseGUI):
 
     def draw_text_info(self):
         # Display current solution value
-        textsurface = self.font.render(f'Objective Value: {self.problem.f(self.current_sol)}', True,
-                                       self.colors['font'])
+        value = self.problem.f(self.current_sol)
+        textsurface = self.font.render('Objective Value: %d' % value, True, self.colors['font'])
         self.screen.blit(textsurface, (32, 32))
+
+        # Display current heuristic value
+        heuristic = self.problem.h(self.current_sol)
+        textsurface = self.font.render('Heuristic Value: %.2f' % heuristic, True, self.colors['font'])
+        self.screen.blit(textsurface, (32, 70))
 
         # Display if current solution is optimal
         if self.problem.is_optimal(self.current_sol):
-            textsurface = self.font.render(f'This solution is optimal.', True,
-                                           self.colors['font'])
-            self.screen.blit(textsurface, (32, 70))
+            textsurface = self.font.render('This solution is optimal.', True, self.colors['font'])
+            self.screen.blit(textsurface, (32, 108))
 
     def mouse_pos_to_field_coords(self, mouse_pos):
         field_y = mouse_pos[1] - self.scr_marg_top - self.cam_pos[1]

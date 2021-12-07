@@ -14,7 +14,4 @@ gui = RectanglePackingGUI()
 gui.problem = problem
 init_sol = problem.get_arbitrary_solution()
 gui.set_current_solution(init_sol)
-print(local_search(problem, gui))
-
-# while True:
-#     gui.set_current_solution(init_sol)
+local_search(problem, gui)
