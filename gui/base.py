@@ -1,11 +1,4 @@
-import pygame
-import pygame_menu
-import threading
-import numpy as np
-import json
-
 class BaseGUI:
-
     def __init__(self):
         pass
 
@@ -21,5 +14,5 @@ class BaseGUI:
     def __render(self):
         pass
 
-    def __handle_user_input(self, mouse_pos, x, y):
+    def __handle_user_input(self):
         pass

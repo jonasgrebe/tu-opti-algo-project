@@ -1,5 +1,4 @@
 import time
-
 import pygame
 import pygame_menu
 import threading
@@ -7,9 +6,13 @@ import numpy as np
 import json
 
 from algos import local_search
+from gui import BaseGUI
 
-class RectanglePackingGUI:
+
+class RectanglePackingGUI(BaseGUI):
     def __init__(self):
+        super().__init__()
+
         # Problem constants
         self.problem = None
         self.current_sol = None
@@ -147,11 +150,11 @@ class RectanglePackingGUI:
 
         # Select the rect to change
         self.selected_rect_idx = changed_rect_idx
-        time.sleep(1)
+        time.sleep(0.1)
 
         # Apply new solution
         self.set_current_solution(solution)
-        time.sleep(1)
+        time.sleep(0.1)
 
         # Unselect the changed rect
         self.selected_rect_idx = None
@@ -214,11 +217,9 @@ class RectanglePackingGUI:
 
                 elif event.button == 4:  # mousewheel up
                     self.zoom = min(self.zoom * 1.1, 3)
-                    print(self.zoom)
 
                 elif event.button == 5:  # mousewheel down
                     self.zoom = max(self.zoom / 1.1, 0.25)
-                    print(self.zoom)
 
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 2:  # center mousebutton

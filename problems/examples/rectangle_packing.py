@@ -129,11 +129,19 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
             if self.is_feasible(solution):
                 neighbors += [solution]
 
-        # Rect movement (by 1, 4 or box_length in any direction)
+        # Rect placement inside other boxes
+        boxes = self.get_occupied_boxes(x)
+        for rect_idx in range(self.num_rects):  # for each rectangle
+            for box in boxes:
+                new_solution = self.__place(x, rect_idx, box)
+                if new_solution is not None:
+                    neighbors += [new_solution]
+
+        # Topological rect movement
         directions = np.array([[1, 0], [0, 1], [-1, 0], [0, -1]])
         for rect_idx in range(self.num_rects):  # for each rectangle
             for direction in directions:  # for each direction
-                for distance in [1, 4, self.box_length]:  # for each distance option
+                for distance in [1, 2, 4]:  # for each distance option
                     locations_mod = locations.copy()
                     locations_mod[rect_idx] += direction * distance
 
@@ -148,6 +156,52 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         locations, _ = x
         box_coords = locations // self.box_length
         return set(tuple(map(tuple, box_coords)))
+
+    def __place(self, solution, rect_idx, target_box):
+        """Takes a solution, places the rectangle with the given index into the specified box
+        and returns it as a new solution. Returns None if placement is impossible."""
+
+        # Fetch box info
+        locations, rotations = solution
+        sizes = self.sizes.copy()
+
+        # Consider all rotations
+        sizes[rotations, 0] = self.sizes[rotations, 1]
+        sizes[rotations, 1] = self.sizes[rotations, 0]
+
+        # Get all rects inside specified box
+        box_coords = locations // self.box_length
+        inside_target_box = np.all(box_coords == target_box, axis=1)
+        inside_target_box[rect_idx] = False  # Consider the rect to place outside the target box
+        locations_rel = locations[inside_target_box] % self.box_length
+
+        # Create virtual box
+        virtual_box = np.zeros((self.box_length, self.box_length), dtype=np.bool)
+
+        # Place each single rect into the virtual box
+        for (x, y), (w, h) in zip(locations_rel, sizes[inside_target_box]):
+            region_to_place = virtual_box[x:(x+w), y:(y+h)]
+            region_to_place[:] = 1
+
+        # Try to place the new rect into that box
+        w, h = self.sizes[rect_idx]
+        for rotated in [False, True]:
+            if rotated:
+                w, h = h, w
+
+            for x in range(self.box_length - w + 1):
+                for y in range(self.box_length - h + 1):
+                    region_to_place = virtual_box[x:(x+w), y:(y+h)]
+
+                    if not np.any(region_to_place):
+                        # We found a valid placement
+                        new_locations = locations.copy()
+                        new_locations[rect_idx] = [target_box[0] * self.box_length + x, target_box[1] * self.box_length + y]
+                        new_rotations = rotations.copy()
+                        new_rotations[rect_idx] = rotated
+                        return new_locations, new_rotations
+
+        return None
 
     def is_optimal(self, x):
         """Returns true if the solution is optimal."""
