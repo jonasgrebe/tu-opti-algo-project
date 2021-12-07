@@ -7,6 +7,7 @@ import json
 
 from algos import local_search
 from gui import BaseGUI
+from problems.examples.rectangle_packing import RectanglePackingProblem
 
 
 class RectanglePackingGUI(BaseGUI):
@@ -34,7 +35,6 @@ class RectanglePackingGUI(BaseGUI):
 
         self.is_searching = False
         self.search_thread = None
-
 
     @property
     def colors(self):
@@ -87,10 +87,8 @@ class RectanglePackingGUI(BaseGUI):
         )
 
         def generate_instance():
-            self.is_searching = False # IMPORTANT!
-            self.problem.generate()
-            init_sol = self.problem.get_arbitrary_solution()
-            self.set_current_solution(init_sol)
+            self.is_searching = False  # IMPORTANT!
+            self.__setup_new_problem()
 
         btn_generate = self.menu.add.button(
             'Generate Instance',
@@ -108,8 +106,9 @@ class RectanglePackingGUI(BaseGUI):
         def run_search():
             if self.is_searching:
                 return
-            self.is_searching = True # IMPORTANT!
-            self.search_thread = threading.Thread(target=self.search, args=(self.problem, self))
+            self.is_searching = True  # IMPORTANT!
+            self.search_thread = threading.Thread(target=self.search, args=(self.get_current_solution(),
+                                                                            self.problem, self))
             self.search_thread.start()
 
         btn_search = self.menu.add.button(
@@ -127,6 +126,10 @@ class RectanglePackingGUI(BaseGUI):
 
         self.menu.center_content()
 
+    def __setup_new_problem(self):
+        self.problem = RectanglePackingProblem(box_length=8, num_rects=32, w_min=1, w_max=8, h_min=1, h_max=8)
+        init_sol = self.problem.get_arbitrary_solution()
+        self.set_current_solution(init_sol)
 
     def resize_window(self, w, h):
         pygame.display.set_mode((w, h), pygame.RESIZABLE)
@@ -165,6 +168,7 @@ class RectanglePackingGUI(BaseGUI):
     def __run(self):
         self.__init_gui()
         self.__setup_menu()
+        self.__setup_new_problem()
 
         while self.running:
             self.__handle_user_input()
@@ -236,7 +240,6 @@ class RectanglePackingGUI(BaseGUI):
             elif event.type == pygame.VIDEORESIZE:  # Resize pygame display area on window resize
                 self.resize_window(event.w, event.h)
 
-
     def __render(self):
         # Grid area
         pygame.draw.rect(self.screen, self.colors['grid_bg'],
@@ -275,7 +278,6 @@ class RectanglePackingGUI(BaseGUI):
             if self.current_sol is not None:
                 # Draw rectangles from current solution
                 for rect_idx, (x, y, w, h) in enumerate(self.rect_dims):
-
                     color = self.colors['rectangles_search'] if self.is_searching else self.colors['rectangles']
                     color = self.colors['active_rectangle'] if rect_idx == self.selected_rect_idx else color
 

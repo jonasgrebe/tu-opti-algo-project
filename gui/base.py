@@ -8,6 +8,9 @@ class BaseGUI:
     def resize_window(self, w, h):
         pass
 
+    def set_and_animate_solution(self, solution):
+        pass
+
     def set_current_solution(self, solution):
         pass
 

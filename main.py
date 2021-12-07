@@ -1,17 +1,16 @@
-from algos import local_search
-from problems.examples.grid import TwoDGridProblem
-from problems.examples.rectangle_packing import RectanglePackingProblem
 from gui.rectangle_packing import RectanglePackingGUI
-
-
-# f = lambda x: x[0] ** 2 + x[1]**2
-# grid_problem = TwoDGridProblem(f=f, is_max=False)
-# print(local_search(grid_problem))
-
-problem = RectanglePackingProblem(box_length=8, num_rects=32, w_min=1, w_max=8, h_min=1, h_max=8)
+from algos.local import local_search
+from problems.examples.rectangle_packing import RectanglePackingProblem
+import time
 
 gui = RectanglePackingGUI()
-gui.problem = problem
-init_sol = problem.get_arbitrary_solution()
-gui.set_current_solution(init_sol)
-local_search(problem, gui)
+
+# For performance test
+# problem = RectanglePackingProblem(8, 100, 1, 8, 1, 8)
+# init_sol = problem.get_arbitrary_solution()
+# t = time.time()
+# solution = local_search(init_sol, problem)
+# print("time: %.3f s" % (time.time() - t))
+# gui = RectanglePackingGUI()
+# gui.problem = problem
+# gui.set_current_solution(solution)

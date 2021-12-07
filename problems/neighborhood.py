@@ -17,6 +17,15 @@ class NeighborhoodProblem(OptProblem):
         raise NotImplementedError
 
     @abstractmethod
+    def get_next_neighbor(self, x):
+        """Yields the next neighbor not yielded yet.
+
+        :param x: feasible solution x
+        :return: Next (feasible) solution
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def get_arbitrary_solution(self):
         """Returns an arbitrary initial solution.
 

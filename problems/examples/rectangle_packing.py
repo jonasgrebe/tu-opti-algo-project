@@ -1,6 +1,7 @@
 from problems.neighborhood import NeighborhoodProblem
 from problems.construction import IndependenceSystemProblem
 import numpy as np
+import time
 
 NUM_BOX_COLS = 4
 
@@ -57,9 +58,9 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         return len(self.get_occupied_boxes(x))
 
     def h(self, x):
-        return self.box_occupancy_heuristic(x)
+        return self.__box_occupancy_heuristic(x)
 
-    def rect_cnt_heuristic(self, x):
+    def __rect_cnt_heuristic(self, x):
         """Depends on rectangle count per box."""
         boxes = self.get_occupied_boxes(x)
         locations, _ = x
@@ -77,7 +78,7 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
             cost += 1 - 0.5 ** rect_cnt[box]
         return cost
 
-    def box_occupancy_heuristic(self, x):
+    def __box_occupancy_heuristic(self, x):
         """Depends on occupancy inside box."""
         boxes = self.get_occupied_boxes(x)
         locations, _ = x
@@ -150,23 +151,18 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
 
     def get_neighborhood(self, x):
         if self.neighborhood_relation == "geometry_based":
-            return self.__get_geometry_based_neighborhood(x)
+            return list(self.__get_next_geometry_based_neighbor(x))
         else:
             raise NotImplementedError
 
-    def __get_geometry_based_neighborhood(self, x):
-        # TODO: define place() method for another geometry based neighborhood relation
-        neighbors = []
+    def get_next_neighbor(self, x):
+        if self.neighborhood_relation == "geometry_based":
+            return self.__get_next_geometry_based_neighbor(x)
+        else:
+            raise NotImplementedError
 
-        locations, rotations = x
-
-        # Rotations
-        for rect_idx in range(self.num_rects):
-            rotations_mod = rotations.copy()
-            rotations_mod[rect_idx] = ~rotations_mod[rect_idx]
-            solution = (locations.copy(), rotations_mod)
-            if self.is_feasible(solution):
-                neighbors += [solution]
+    def __get_next_geometry_based_neighbor(self, x):
+        # locations, rotations = x
 
         # Rect placement inside other boxes
         boxes = self.get_occupied_boxes(x)
@@ -174,9 +170,9 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
             for box in boxes:
                 new_solution = self.__place(x, rect_idx, box)
                 if new_solution is not None:
-                    neighbors += [new_solution]
+                    yield new_solution
 
-        # Topological rect movement
+        """# Topological rect movement
         directions = np.array([[1, 0], [0, 1], [-1, 0], [0, -1]])
         for rect_idx in range(self.num_rects):  # for each rectangle
             for direction in directions:  # for each direction
@@ -186,9 +182,15 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
 
                     solution = (locations_mod, rotations.copy())
                     if self.is_feasible(solution):
-                        neighbors += [solution]
+                        yield solution
 
-        return neighbors
+        # Rotations
+        for rect_idx in range(self.num_rects):
+            rotations_mod = rotations.copy()
+            rotations_mod[rect_idx] = ~rotations_mod[rect_idx]
+            solution = (locations.copy(), rotations_mod)
+            if self.is_feasible(solution):
+                yield solution"""
 
     def get_occupied_boxes(self, x):
         """Returns the coordinates of all occupied boxes as a set for a given solution x."""
