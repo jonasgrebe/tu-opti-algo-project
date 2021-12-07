@@ -37,7 +37,8 @@ def local_search(problem: NeighborhoodProblem, gui: BaseGUI):
         print("neighborhood size:", len(neighborhood))
         print("current value:", current_solution_value)
 
-        gui.set_and_animate_solution(current_solution)
+        if gui.is_searching:
+            gui.set_and_animate_solution(current_solution)
         time.sleep(1)
 
     # Step 3: deliver final solution (local optimum)

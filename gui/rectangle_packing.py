@@ -103,6 +103,8 @@ class RectanglePackingGUI:
         btn_generate.set_onmouseleave(lambda: button_onmouseleave(btn_generate))
 
         def run_search():
+            if self.is_searching:
+                return
             self.is_searching = True # IMPORTANT!
             self.search_thread = threading.Thread(target=self.search, args=(self.problem, self))
             self.search_thread.start()
@@ -119,22 +121,6 @@ class RectanglePackingGUI:
         btn_search.translate(-50, -200)
         btn_search.set_onmouseover(lambda: button_onmouseover(btn_search))
         btn_search.set_onmouseleave(lambda: button_onmouseleave(btn_search))
-
-        def clear_rects():
-            self.problem.sizes = np.array([])
-
-        btn_clear = self.menu.add.button(
-            'Clear',
-            run_search,
-            button_id='clear',
-            font_size=20,
-            shadow_width=10,
-            align=pygame_menu.locals.ALIGN_RIGHT,
-            background_color=(0, 0, 0)
-        )
-        btn_clear.translate(-50, -200)
-        btn_clear.set_onmouseover(lambda: button_onmouseover(btn_clear))
-        btn_clear.set_onmouseleave(lambda: button_onmouseleave(btn_clear))
 
         self.menu.center_content()
 
