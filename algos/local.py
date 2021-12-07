@@ -41,5 +41,8 @@ def local_search(problem: NeighborhoodProblem, gui: BaseGUI):
             gui.set_and_animate_solution(current_solution)
         time.sleep(1)
 
+    # tell gui that search is over
+    gui.is_searching = False
+
     # Step 3: deliver final solution (local optimum)
     return current_solution
