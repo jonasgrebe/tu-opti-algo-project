@@ -272,8 +272,10 @@ class RectanglePackingGUI(BaseGUI):
             if self.current_sol is not None:
                 # Draw rectangles from current solution
                 for rect_idx, (x, y, w, h) in enumerate(self.rect_dims):
-                    color = self.colors['active_rectangle'] if rect_idx == self.selected_rect_idx else \
-                        self.colors['rectangles']
+
+                    color = self.colors['rectangles_search'] if self.is_searching else self.colors['rectangles']
+                    color = self.colors['active_rectangle'] if rect_idx == self.selected_rect_idx else color
+
                     self.draw_rect(x, y, w, h, color=color)
 
         self.draw_hover_shape()
