@@ -4,6 +4,7 @@ import pygame_menu
 import threading
 import numpy as np
 import json
+import copy
 
 from algos import local_search
 from gui import BaseGUI
@@ -16,6 +17,9 @@ class RectanglePackingGUI(BaseGUI):
 
         # Problem constants
         self.problem = None
+        self.problem_copy = None
+        self.init_sol = None
+
         self.current_sol = None
         self.rect_dims = None
         self.search = local_search  # the search algorithm routine
@@ -35,6 +39,7 @@ class RectanglePackingGUI(BaseGUI):
 
         self.is_searching = False
         self.search_thread = None
+
 
     @property
     def colors(self):
@@ -62,6 +67,15 @@ class RectanglePackingGUI(BaseGUI):
         self.cam_pos = np.array([0, 0])
         self.zoom = 1.0
 
+
+    def stop_search(self):
+        # not private because search algorithm shall invoke it as well
+        self.is_searching = False
+
+        btn_search = self.menu.get_widget('run_search')
+        btn_search.set_title('Run Search')
+
+
     def __setup_menu(self):
 
         def button_onmouseover(w) -> None:
@@ -87,7 +101,7 @@ class RectanglePackingGUI(BaseGUI):
         )
 
         def generate_instance():
-            self.is_searching = False  # IMPORTANT!
+            self.stop_search()  # IMPORTANT!
             self.__setup_new_problem()
 
         btn_generate = self.menu.add.button(
@@ -104,12 +118,11 @@ class RectanglePackingGUI(BaseGUI):
         btn_generate.set_onmouseleave(lambda: button_onmouseleave(btn_generate))
 
         def run_search():
-            if self.is_searching:
-                return
-            self.is_searching = True  # IMPORTANT!
-            self.search_thread = threading.Thread(target=self.search, args=(self.get_current_solution(),
-                                                                            self.problem, self))
-            self.search_thread.start()
+            btn_search = self.menu.get_widget('run_search')
+            if not self.is_searching:
+                self.__start_search()
+            else:
+                self.stop_search()
 
         btn_search = self.menu.add.button(
             'Run Search',
@@ -124,12 +137,58 @@ class RectanglePackingGUI(BaseGUI):
         btn_search.set_onmouseover(lambda: button_onmouseover(btn_search))
         btn_search.set_onmouseleave(lambda: button_onmouseleave(btn_search))
 
+        def reset_search():
+            btn_reset = self.menu.get_widget('reset_search')
+            if self.is_searching:
+                self.stop_search()
+
+            self.problem = self.problem_copy
+            self.set_current_solution(self.init_sol)
+
+        btn_reset = self.menu.add.button(
+            'Reset Search',
+            reset_search,
+            button_id='reset_search',
+            font_size=20,
+            shadow_width=10,
+            align=pygame_menu.locals.ALIGN_RIGHT,
+            background_color=(0, 0, 0)
+        )
+        btn_reset.translate(-50, -200)
+        btn_reset.set_onmouseover(lambda: button_onmouseover(btn_reset))
+        btn_reset.set_onmouseleave(lambda: button_onmouseleave(btn_reset))
+
+        btn_exit = self.menu.add.button(
+            'Exit',
+            pygame_menu.events.EXIT,
+            button_id='exit',
+            font_size=20,
+            shadow_width=10,
+            align=pygame_menu.locals.ALIGN_RIGHT,
+            background_color=(0, 0, 0),
+
+        )
+        btn_exit.translate(-50, 100)
+        btn_exit.set_onmouseover(lambda: button_onmouseover(btn_exit))
+        btn_exit.set_onmouseleave(lambda: button_onmouseleave(btn_exit))
+
         self.menu.center_content()
+
+    def __start_search(self):
+        self.is_searching = True
+        self.search_thread = threading.Thread(target=self.search, args=(self.get_current_solution(),
+                                                                        self.problem, self))
+        self.search_thread.start()
+
+        btn_search = self.menu.get_widget('run_search')
+        btn_search.set_title('Pause Search')
 
     def __setup_new_problem(self):
         self.problem = RectanglePackingProblem(box_length=8, num_rects=32, w_min=1, w_max=8, h_min=1, h_max=8)
-        init_sol = self.problem.get_arbitrary_solution()
-        self.set_current_solution(init_sol)
+        self.problem_copy = copy.deepcopy(self.problem)
+
+        self.init_sol = self.problem.get_arbitrary_solution()
+        self.set_current_solution(self.init_sol)
 
     def resize_window(self, w, h):
         pygame.display.set_mode((w, h), pygame.RESIZABLE)
