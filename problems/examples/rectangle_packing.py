@@ -227,11 +227,14 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         sizes[rotations, 1] = self.sizes[rotations, 0]
 
         # Prepare boxes for grid method
-        box_coords = self.get_occupied_boxes(solution)
+        occupancies = self.__get_occupancies(solution)
+        occupancy_values = np.array(list(occupancies.values()))
+        occupancy_order = occupancy_values.argsort()
+        box_coords = list(occupancies.keys())
         box_ids = {k: v for v, k in enumerate(box_coords)}
-        box_coords = np.array(list(box_coords))
+        box_coords = np.array(box_coords)
         num_boxes = len(box_coords)
-        boxes = np.zeros((num_boxes, self.box_length, self.box_length), dtype=np.bool)
+        boxes_grid = np.zeros((num_boxes, self.box_length, self.box_length), dtype=np.bool)
 
         rect_box_coords = locations // self.box_length
         locations_rel = locations % self.box_length
@@ -241,7 +244,7 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
 
         for begin, end, box_coord in zip(begins, ends, rect_box_coords):
             box_id = box_ids[tuple(box_coord)]
-            boxes[box_id, begin[0]:end[0], begin[1]:end[1]] = 1
+            boxes_grid[box_id, begin[0]:end[0], begin[1]:end[1]] = 1
 
         # Determine an efficient rect order
         box2rects = self.__get_box2rects(solution)
@@ -255,30 +258,33 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         for rect_idx in ordered_rect_ids:
             size = self.sizes[rect_idx]
 
+            # Select the n most promising boxes
+            box_capacity = self.box_length ** 2
+            max_occupancy = box_capacity - self.areas[rect_idx]
+            promising_boxes = occupancy_values < max_occupancy  # drop boxes which are too full
+            sorted_box_ids = occupancy_order
+            selected_box_ids = sorted_box_ids[promising_boxes[occupancy_order]]
+            selected_box_ids = selected_box_ids[-16:]  # take at most 32 boxes
+
             # Identify all locations which are allowed for placement
-            # t = time.time()
-            regions_to_place = np.lib.stride_tricks.sliding_window_view(boxes, size, axis=(1, 2))
-            b_id, x, y = np.where(~np.any(regions_to_place, axis=(3, 4)))
+            regions_to_place = np.lib.stride_tricks.sliding_window_view(boxes_grid[selected_box_ids], size, axis=(1, 2))
+            b, x, y = np.where(~np.any(regions_to_place, axis=(3, 4)))
+            b_id = selected_box_ids[b]
             b_loc = box_coords[b_id] * self.box_length
             loc = b_loc + np.stack([x, y], axis=1)
-            # print("finding valid placing locations took %.3f s" % (time.time() - t))
 
             # Consider only one placement per box
-            # t = time.time()
             b_id_cmp = np.zeros(b_id.shape, dtype=np.int)
             b_id_cmp[1:] = b_id[:-1]
             is_first_valid_placement = b_id_cmp < b_id
             relevant_locs = loc[is_first_valid_placement]
-            # print("filtering placing locations took %.3f s" % (time.time() - t))
 
             # Generate new solutions
-            # t = time.time()
             solutions = []
             for loc in relevant_locs:
                 new_locations = locations.copy()
                 new_locations[rect_idx] = loc
                 solutions += [(new_locations, rotations)]
-            # print("generating solutions took %.3f s" % (time.time() - t))
             yield solutions
 
     def __place(self, solution, rect_idx, target_box):

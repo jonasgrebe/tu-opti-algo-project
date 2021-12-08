@@ -6,6 +6,8 @@ import time
 
 
 def local_search(init_solution, problem: NeighborhoodProblem, gui: BaseGUI = None):
+    t = time.time()
+
     # Step 1: Start with an arbitrary feasible solution
     current_solution = init_solution
 
@@ -34,6 +36,7 @@ def local_search(init_solution, problem: NeighborhoodProblem, gui: BaseGUI = Non
     if gui is not None:
         gui.stop_search()
 
+    print("Local search took %.3f s" % (time.time() - t))
 
     # Step 3: deliver final solution (local optimum)
     return current_solution

@@ -115,7 +115,7 @@ class RectanglePackingGUI(BaseGUI):
             '# rects',
             rangeslider_id='rangeslider_num_rects',
             default=self.problem_config['num_rects'],
-            range_values=(1, 200),
+            range_values=(1, 1000),
             increment=1,
             onchange=rangeslider_num_rects_onchange,
             font_size=20,
