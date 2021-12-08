@@ -12,8 +12,11 @@ def local_search(init_solution, problem: NeighborhoodProblem, gui: BaseGUI = Non
     # Step 2: While there is a better solution nearby, go to that solution
     while True:
         # Degree of freedom: may choose from one of these
-        next_solution = get_best_neighbor(problem, current_solution)
-        # next_solution = get_next_better_neighbor(problem, current_solution)
+        # next_solution = get_best_neighbor(problem, current_solution)
+
+        # t = time.time()
+        next_solution = get_next_better_neighbor(problem, current_solution)
+        # print("getting next better neighbor took %.3f s" % (time.time() - t))
 
         if next_solution is None:
             break
@@ -38,11 +41,15 @@ def local_search(init_solution, problem: NeighborhoodProblem, gui: BaseGUI = Non
 def get_best_neighbor(problem, solution):
     value = problem.h(solution)
 
+    t = time.time()
     neighborhood = problem.get_neighborhood(solution)
+    print("getting all neighbors took %.3f s" % (time.time() - t))
+
     print("neighborhood size:", len(neighborhood))
-    # t = time.time()
+
+    t = time.time()
     neighborhood_values = [problem.h(neighbor_solution) for neighbor_solution in neighborhood]
-    # print("evaluating all neighbors took %.3f s" % (time.time() - t))
+    print("evaluating all neighbors took %.3f s" % (time.time() - t))
 
     if problem.is_max:
         best_neighbor_idx = np.argmax(neighborhood_values)
@@ -60,10 +67,24 @@ def get_best_neighbor(problem, solution):
 def get_next_better_neighbor(problem: NeighborhoodProblem, solution):
     value = problem.h(solution)
 
-    for neighbor in problem.get_next_neighbor(solution):
-        if problem.is_max and problem.h(neighbor) > value:
-            return neighbor
-        elif not problem.is_max and problem.h(neighbor) < value:
-            return neighbor
+    for neighbors in problem.get_next_neighbors(solution):
+        if not neighbors:
+            continue
 
-    return None
+        neighbors_values = [problem.h(neighbor) for neighbor in neighbors]
+
+        if problem.is_max:
+            best_neighbor_idx = np.argmax(neighbors_values)
+            is_better = neighbors_values[best_neighbor_idx] > value
+        else:
+            best_neighbor_idx = np.argmin(neighbors_values)
+            is_better = neighbors_values[best_neighbor_idx] < value
+
+        if is_better:
+            return neighbors[best_neighbor_idx]
+
+        # for neighbor in neighbors:
+        #     if problem.is_max and problem.h(neighbor) > value:
+        #         return neighbor
+        #     elif not problem.is_max and problem.h(neighbor) < value:
+        #         return neighbor

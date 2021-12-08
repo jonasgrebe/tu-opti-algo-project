@@ -2,6 +2,7 @@ from problems.neighborhood import NeighborhoodProblem
 from problems.construction import IndependenceSystemProblem
 import numpy as np
 import time
+import itertools
 
 NUM_BOX_COLS = 4
 
@@ -42,6 +43,7 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         widths = np.random.randint(w_min, w_max, size=num_rects)
         heights = np.random.randint(h_min, h_max, size=num_rects)
         self.sizes = np.stack([widths, heights], axis=1)
+        self.areas = self.sizes[:, 0] * self.sizes[:, 1]
 
     def generate(self):
         self.__generate(self.box_length, self.num_rects, self.w_min, self.w_max, self.h_min, self.h_max)
@@ -62,40 +64,60 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
 
     def __rect_cnt_heuristic(self, x):
         """Depends on rectangle count per box."""
-        boxes = self.get_occupied_boxes(x)
-        locations, _ = x
-        box_coords = locations // self.box_length
-
-        # Count rectangles per box
-        rect_cnt = {}
-        for box in boxes:
-            rect_cnt[box] = 0
-        for b in box_coords:
-            rect_cnt[tuple(b)] += 1
-
-        cost = 0
-        for box in boxes:
-            cost += 1 - 0.5 ** rect_cnt[box]
-        return cost
+        rect_cnts = np.array(list(self.__get_rect_cnts(x).values()))
+        cost = 1 - 0.5 ** rect_cnts
+        return np.sum(cost)
 
     def __box_occupancy_heuristic(self, x):
-        """Depends on occupancy inside box."""
+        """Penalizes comparably low occupied boxes more."""
+        occupancies = np.array(list(self.__get_occupancies(x).values()))
+
+        # Convert into cost value
+        box_capacity = self.box_length ** 2
+        cost = 1 + (occupancies / box_capacity - 1) ** 3
+        return np.sum(cost)
+
+    def __get_occupancies(self, x):
+        """Identifies and returns the relative load (occupancy) for each box."""
         boxes = self.get_occupied_boxes(x)
         locations, _ = x
         box_coords = locations // self.box_length
 
-        # Count occupancy per box
-        occupancy = {}
+        occupancies = {}
         for box in boxes:
-            occupancy[box] = 0
+            occupancies[box] = 0
         for rect_idx, b in enumerate(box_coords):
-            occupancy[tuple(b)] += self.sizes[rect_idx, 0] * self.sizes[rect_idx, 1]
+            occupancies[tuple(b)] += self.areas[rect_idx]
 
-        cost = 0
-        box_capacity = self.box_length ** 2
+        return occupancies
+
+    def __get_rect_cnts(self, x):
+        """Counts rectangles per box."""
+        boxes = self.get_occupied_boxes(x)
+        locations, _ = x
+        box_coords = locations // self.box_length
+
+        rect_cnts = {}
         for box in boxes:
-            cost += 1 + (occupancy[box] / box_capacity - 1) ** 3
-        return cost
+            rect_cnts[box] = 0
+        for rect_idx, b in enumerate(box_coords):
+            rect_cnts[tuple(b)] += 1
+
+        return rect_cnts
+
+    def __get_box2rects(self, x):
+        """Returns a dict with boxes as keys and lists of rect IDs as values."""
+        boxes = self.get_occupied_boxes(x)
+        locations, _ = x
+        box_coords = locations // self.box_length
+
+        rect_lists = {}
+        for box in boxes:
+            rect_lists[box] = []
+        for rect_idx, b in enumerate(box_coords):
+            rect_lists[tuple(b)] += [rect_idx]
+
+        return rect_lists
 
     def is_feasible(self, x):
         # Collect rectangle properties
@@ -151,19 +173,17 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
 
     def get_neighborhood(self, x):
         if self.neighborhood_relation == "geometry_based":
-            return list(self.__get_next_geometry_based_neighbor(x))
+            return list(itertools.chain(*list(self.__place_all(x))))
         else:
             raise NotImplementedError
 
-    def get_next_neighbor(self, x):
+    def get_next_neighbors(self, x):
         if self.neighborhood_relation == "geometry_based":
-            return self.__get_next_geometry_based_neighbor(x)
+            return self.__place_all(x)
         else:
             raise NotImplementedError
 
     def __get_next_geometry_based_neighbor(self, x):
-        # locations, rotations = x
-
         # Rect placement inside other boxes
         boxes = self.get_occupied_boxes(x)
         for rect_idx in range(self.num_rects):  # for each rectangle
@@ -198,11 +218,76 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         box_coords = locations // self.box_length
         return set(tuple(map(tuple, box_coords)))
 
+    def __place_all(self, solution):
+        """Returns all valid placing coordinates for all rectangles."""
+        # Fetch rect info
+        locations, rotations = solution
+        sizes = self.sizes.copy()
+
+        # Consider all rotations
+        sizes[rotations, 0] = self.sizes[rotations, 1]
+        sizes[rotations, 1] = self.sizes[rotations, 0]
+
+        # Prepare boxes for grid method
+        box_coords = self.get_occupied_boxes(solution)
+        box_ids = {k: v for v, k in enumerate(box_coords)}
+        box_coords = np.array(list(box_coords))
+        num_boxes = len(box_coords)
+        boxes = np.zeros((num_boxes, self.box_length, self.box_length), dtype=np.bool)
+
+        rect_box_coords = locations // self.box_length
+        locations_rel = locations % self.box_length
+
+        begins = locations_rel
+        ends = locations_rel + sizes
+
+        for begin, end, box_coord in zip(begins, ends, rect_box_coords):
+            box_id = box_ids[tuple(box_coord)]
+            boxes[box_id, begin[0]:end[0], begin[1]:end[1]] = 1
+
+        # Determine an efficient rect order
+        box2rects = self.__get_box2rects(solution)
+        rect_lists = list(box2rects.values())
+        rect_cnts = np.array(list(map(len, rect_lists)))
+        order = rect_cnts.argsort()
+        ordered_rect_lists = np.array(rect_lists)[order]
+        ordered_rect_ids = np.concatenate(ordered_rect_lists).astype(np.int)
+
+        # Check placements using sliding window approach
+        for rect_idx in ordered_rect_ids:
+            size = self.sizes[rect_idx]
+
+            # Identify all locations which are allowed for placement
+            # t = time.time()
+            regions_to_place = np.lib.stride_tricks.sliding_window_view(boxes, size, axis=(1, 2))
+            b_id, x, y = np.where(~np.any(regions_to_place, axis=(3, 4)))
+            b_loc = box_coords[b_id] * self.box_length
+            loc = b_loc + np.stack([x, y], axis=1)
+            # print("finding valid placing locations took %.3f s" % (time.time() - t))
+
+            # Consider only one placement per box
+            # t = time.time()
+            b_id_cmp = np.zeros(b_id.shape, dtype=np.int)
+            b_id_cmp[1:] = b_id[:-1]
+            is_first_valid_placement = b_id_cmp < b_id
+            relevant_locs = loc[is_first_valid_placement]
+            # print("filtering placing locations took %.3f s" % (time.time() - t))
+
+            # Generate new solutions
+            # t = time.time()
+            solutions = []
+            for loc in relevant_locs:
+                new_locations = locations.copy()
+                new_locations[rect_idx] = loc
+                solutions += [(new_locations, rotations)]
+            # print("generating solutions took %.3f s" % (time.time() - t))
+            yield solutions
+
     def __place(self, solution, rect_idx, target_box):
         """Takes a solution, places the rectangle with the given index into the specified box
         and returns it as a new solution. Returns None if placement is impossible."""
 
-        # Fetch box info
+        # Fetch rect info
         locations, rotations = solution
         sizes = self.sizes.copy()
 
