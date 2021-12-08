@@ -16,7 +16,8 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         self.w_min, self.w_max = w_min, w_max
         self.h_min, self.h_max = h_min, h_max
         self.neighborhood_relation = neighborhood_relation
-        self.generate()
+
+        self.__generate(box_length, num_rects, w_min, w_max, h_min, h_max)
 
         # Compute the lower bound for the minimum
         oversize = self.box_length // 2
@@ -44,9 +45,6 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         heights = np.random.randint(h_min, h_max, size=num_rects)
         self.sizes = np.stack([widths, heights], axis=1)
         self.areas = self.sizes[:, 0] * self.sizes[:, 1]
-
-    def generate(self):
-        self.__generate(self.box_length, self.num_rects, self.w_min, self.w_max, self.h_min, self.h_max)
 
     def rotate_rect(self, idx):
         """Rotates the rectangle with index idx."""

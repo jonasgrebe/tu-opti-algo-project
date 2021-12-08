@@ -32,7 +32,8 @@ def local_search(init_solution, problem: NeighborhoodProblem, gui: BaseGUI = Non
 
     # tell gui that search is over
     if gui is not None:
-        gui.is_searching = False
+        gui.stop_search()
+
 
     # Step 3: deliver final solution (local optimum)
     return current_solution
