@@ -192,6 +192,8 @@ class RectanglePackingGUI(BaseGUI):
             h_min = int(rangeslider_h_min.get_value())
             self.__update_problem_config({'h_min': h_min})
 
+        self.mini_menu.add.vertical_margin(20)
+
         rangeslider_h_min = self.mini_menu.add.range_slider(
             'h_min',
             rangeslider_id='rangeslider_h_min',
@@ -220,6 +222,8 @@ class RectanglePackingGUI(BaseGUI):
             shadow_width=10,
             background_color=(0, 0, 0)
         )
+
+        self.mini_menu.add.vertical_margin(40)
 
         btn_close_mini_menu = self.mini_menu.add.button(
             'Save and Return',
@@ -319,6 +323,7 @@ class RectanglePackingGUI(BaseGUI):
             btn_reset = self.menu.get_widget('reset_search')
             if self.is_searching:
                 self.stop_search()
+            self.search_start_time = None
 
             self.problem = self.problem_copy
             self.set_current_solution(self.init_sol)
@@ -412,6 +417,7 @@ class RectanglePackingGUI(BaseGUI):
         self.area_height = self.screen.get_height()
 
         self.menu.resize(w, h, position=(1, 1, False))
+        self.mini_menu.resize(w, h, position=(1, 1, False))
 
     def set_current_solution(self, solution):
         self.current_sol = solution
