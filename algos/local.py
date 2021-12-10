@@ -5,6 +5,9 @@ import numpy as np
 import time
 
 
+MINIMUM_IMPROVEMENT = 0.01
+
+
 def local_search(init_solution, problem: NeighborhoodProblem, gui: BaseGUI = None):
     t = time.time()
 
@@ -57,12 +60,12 @@ def get_best_neighbor(problem, solution):
 
     if problem.is_max:
         best_neighbor_idx = np.argmax(neighborhood_values)
-        is_better = neighborhood_values[best_neighbor_idx] > value
+        is_significantly_better = neighborhood_values[best_neighbor_idx] > value + MINIMUM_IMPROVEMENT
     else:
         best_neighbor_idx = np.argmin(neighborhood_values)
-        is_better = neighborhood_values[best_neighbor_idx] < value
+        is_significantly_better = neighborhood_values[best_neighbor_idx] < value - MINIMUM_IMPROVEMENT
 
-    if not is_better:
+    if not is_significantly_better:
         return None
 
     return neighborhood[best_neighbor_idx]
@@ -75,16 +78,19 @@ def get_next_better_neighbor(problem: NeighborhoodProblem, solution):
         if not neighbors:
             continue
 
+        t = time.time()
         neighbors_values = [problem.h(neighbor) for neighbor in neighbors]
+        print("evaluating %d neighbors took %.3f s" % (len(neighbors), time.time() - t))
 
         if problem.is_max:
             best_neighbor_idx = np.argmax(neighbors_values)
-            is_better = neighbors_values[best_neighbor_idx] > value
+            is_significantly_better = neighbors_values[best_neighbor_idx] > value + MINIMUM_IMPROVEMENT
         else:
             best_neighbor_idx = np.argmin(neighbors_values)
-            is_better = neighbors_values[best_neighbor_idx] < value
+            is_significantly_better = neighbors_values[best_neighbor_idx] < value - MINIMUM_IMPROVEMENT
 
-        if is_better:
+        if is_significantly_better:
+            print("found better neighbor")
             return neighbors[best_neighbor_idx]
 
         # for neighbor in neighbors:
