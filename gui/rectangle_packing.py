@@ -42,8 +42,6 @@ class RectanglePackingGUI(BaseGUI):
         self.search_thread = None
         self.search_start_time = None
 
-
-
     @property
     def colors(self):
         return self.config['colors']
@@ -51,7 +49,6 @@ class RectanglePackingGUI(BaseGUI):
     @property
     def field_size(self):
         return np.round(self.config['field_size'] * self.zoom)
-
 
     def __init_gui(self):
         pygame.init()
@@ -70,7 +67,6 @@ class RectanglePackingGUI(BaseGUI):
 
         self.cam_pos = np.array([0, 0])
         self.zoom = 1.0
-
 
     def stop_search(self):
         # not private because search algorithm shall invoke it as well
@@ -115,7 +111,6 @@ class RectanglePackingGUI(BaseGUI):
             theme=theme,
             title='Problem Configuration',
         )
-
 
         def rangeslider_box_length_onchange(s, *args) -> None:
             rangeslider_box_length = self.mini_menu.get_widget('rangeslider_box_length')
@@ -179,7 +174,7 @@ class RectanglePackingGUI(BaseGUI):
             'w_max',
             rangeslider_id='rangeslider_w_max',
             default=self.problem_config['w_max'],
-            range_values=(self.problem_config['w_min']+1, self.problem_config['box_length']),
+            range_values=(self.problem_config['w_min'] + 1, self.problem_config['box_length']),
             increment=1,
             onchange=rangeslider_w_max_onchange,
             font_size=20,
@@ -215,7 +210,7 @@ class RectanglePackingGUI(BaseGUI):
             'h_max',
             rangeslider_id='rangeslider_h_max',
             default=self.problem_config['h_max'],
-            range_values=(self.problem_config['h_min']+1, self.problem_config['box_length']),
+            range_values=(self.problem_config['h_min'] + 1, self.problem_config['box_length']),
             increment=1,
             onchange=rangeslider_h_max_onchange,
             font_size=20,
@@ -280,7 +275,7 @@ class RectanglePackingGUI(BaseGUI):
             items=[
                 ('Local Search', local_search),
                 ('Greedy Search', greedy_search)
-                ],
+            ],
             dropselect_id='algorithm',
             font_size=20,
             onchange=dropselect_algorithm_onchange,
@@ -297,7 +292,6 @@ class RectanglePackingGUI(BaseGUI):
         )
         dropselect_algorithm.set_onmouseover(lambda: button_onmouseover(dropselect_algorithm))
         dropselect_algorithm.set_onmouseleave(lambda: button_onmouseleave(dropselect_algorithm))
-
 
         def run_search():
             btn_search = self.menu.get_widget('run_search')
@@ -351,7 +345,6 @@ class RectanglePackingGUI(BaseGUI):
         btn_exit.set_onmouseover(lambda: button_onmouseover(btn_exit))
         btn_exit.set_onmouseleave(lambda: button_onmouseleave(btn_exit))
 
-
     def __start_search(self):
         self.is_searching = True
         self.search_thread = threading.Thread(target=self.search, args=(self.get_current_solution(),
@@ -373,17 +366,20 @@ class RectanglePackingGUI(BaseGUI):
         self.init_sol = self.problem.get_arbitrary_solution()
         self.set_current_solution(self.init_sol)
 
-    def __update_problem_config(self, update_dict = {}):
-
+    def __update_problem_config(self, update_dict: dict):
         problem_config = self.problem_config.copy()
         problem_config.update(update_dict)
 
         print(update_dict)
 
-        problem_config['w_min'] = min(problem_config['w_max'], min(problem_config['w_min'], problem_config['box_length']))
-        problem_config['w_max'] = max(problem_config['w_min'], min(problem_config['w_max'], problem_config['box_length']))
-        problem_config['h_min'] = min(problem_config['h_max'], min(problem_config['h_min'], problem_config['box_length']))
-        problem_config['h_max'] = max(problem_config['h_min'], min(problem_config['h_max'], problem_config['box_length']))
+        problem_config['w_min'] = min(problem_config['w_max'],
+                                      min(problem_config['w_min'], problem_config['box_length']))
+        problem_config['w_max'] = max(problem_config['w_min'],
+                                      min(problem_config['w_max'], problem_config['box_length']))
+        problem_config['h_min'] = min(problem_config['h_max'],
+                                      min(problem_config['h_min'], problem_config['box_length']))
+        problem_config['h_max'] = max(problem_config['h_min'],
+                                      min(problem_config['h_max'], problem_config['box_length']))
 
         rangeslider_box_length = self.mini_menu.get_widget('rangeslider_box_length')
         rangeslider_num_rects = self.mini_menu.get_widget('rangeslider_num_rects')
@@ -400,10 +396,10 @@ class RectanglePackingGUI(BaseGUI):
         rangeslider_h_min.set_value(problem_config['h_min'])
         rangeslider_h_max.set_value(problem_config['h_max'])
 
-        rangeslider_w_min._range_values = (1, problem_config['w_max']-1)
-        rangeslider_w_max._range_values = (problem_config['w_min']+1, problem_config['box_length'])
-        rangeslider_h_min._range_values = (1, problem_config['h_max']-1)
-        rangeslider_h_max._range_values = (problem_config['h_min']+1, problem_config['box_length'])
+        rangeslider_w_min._range_values = (1, problem_config['w_max'] - 1)
+        rangeslider_w_max._range_values = (problem_config['w_min'] + 1, problem_config['box_length'])
+        rangeslider_h_min._range_values = (1, problem_config['h_max'] - 1)
+        rangeslider_h_max._range_values = (problem_config['h_min'] + 1, problem_config['box_length'])
 
         for k, v in update_dict.items():
             if self.problem_config[k] != v:
