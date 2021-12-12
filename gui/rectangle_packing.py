@@ -426,20 +426,24 @@ class RectanglePackingGUI(BaseGUI):
     def get_current_solution(self):
         return self.current_sol
 
-    def set_and_animate_solution(self, solution):
+    def set_and_animate_solution(self, solution: RectanglePackingSolution):
         # Identify modified rect
         current_sol_matrix = np.zeros((self.problem.num_rects, 3))
         new_sol_matrix = np.zeros((self.problem.num_rects, 3))
-        current_sol_matrix[:, 0:2], current_sol_matrix[:, 2] = self.current_sol
-        new_sol_matrix[:, 0:2], new_sol_matrix[:, 2] = solution
+        current_sol_matrix[:, 0:2], current_sol_matrix[:, 2] = self.current_sol.locations, self.current_sol.rotations
+        new_sol_matrix[:, 0:2], new_sol_matrix[:, 2] = solution.locations, solution.rotations
         differences = np.any(current_sol_matrix != new_sol_matrix, axis=1)
-        changed_rect_idx = np.argmax(differences)
+        if not np.any(differences):
+            changed_rect_idx = solution.pending_move_params[0]
+        else:
+            changed_rect_idx = np.argmax(differences)
 
         # Select the rect to change
         self.selected_rect_idx = changed_rect_idx
         time.sleep(0.5)
 
         # Apply new solution
+        solution.apply_pending_move()
         self.set_current_solution(solution)
         time.sleep(0.5)
 

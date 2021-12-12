@@ -60,12 +60,12 @@ class RectanglePackingSolution(Solution):
         # Determine box occupancies, rect counts and box to rect relation
         occupancies = np.zeros(len(rect_box_coords), dtype=np.int)
         rect_cnts = np.zeros(len(rect_box_coords), dtype=np.int)
-        box2rects = {tuple(b): [] for b in self.box_coords}
+        box2rects = {i: [] for i in range(self.problem.num_rects)}
         for rect_idx, box in enumerate(rect_box_coords):
             box_id = self.box_ids[tuple(box)]
             occupancies[box_id] += self.problem.areas[rect_idx]
             rect_cnts[box_id] += 1
-            box2rects[tuple(box)] += [rect_idx]
+            box2rects[box_id] += [rect_idx]
         self.box_occupancies, self.box_rect_cnts, self.box2rects = occupancies, rect_cnts, box2rects
 
         # Generate box grid array
@@ -90,11 +90,7 @@ class RectanglePackingSolution(Solution):
             return
 
         rect_idx, target_pos, rotated = self.pending_move_params
-
-        source_box = tuple(self.locations[rect_idx] // self.problem.box_length)
-        source_box_idx = self.box_ids[source_box]
-        target_box = tuple(target_pos // self.problem.box_length)
-        target_box_idx = self.box_ids[target_box]
+        source_box_idx, target_box_idx = self.get_source_target_box_ids(rect_idx, target_pos, update_ids=True)
 
         self.box_occupancies[source_box_idx] -= self.problem.areas[rect_idx]
         self.box_occupancies[target_box_idx] += self.problem.areas[rect_idx]
@@ -102,8 +98,8 @@ class RectanglePackingSolution(Solution):
         self.box_rect_cnts[source_box_idx] -= 1
         self.box_rect_cnts[target_box_idx] += 1
 
-        self.box2rects[source_box].remove(rect_idx)
-        self.box2rects[target_box].append(rect_idx)
+        self.box2rects[source_box_idx].remove(rect_idx)
+        self.box2rects[target_box_idx].append(rect_idx)
 
         x, y = self.locations[rect_idx] % self.problem.box_length
         w, h = self.problem.sizes[rect_idx]
@@ -122,6 +118,25 @@ class RectanglePackingSolution(Solution):
 
         self.move_pending = False
         self.pending_move_params = None
+
+    def get_source_target_box_ids(self, rect_idx, target_pos, update_ids=False):
+        source_box = tuple(self.locations[rect_idx] // self.problem.box_length)
+        source_box_idx = self.box_ids[source_box]
+        target_box = tuple(target_pos // self.problem.box_length)
+
+        if target_box not in self.box_ids.keys():
+            if self.box_rect_cnts[source_box_idx] == 1:
+                target_box_idx = source_box_idx
+            else:
+                target_box_idx = np.where(self.box_rect_cnts == 0)[0][0]
+            if update_ids:
+                self.box_ids.pop(source_box)
+                self.box_ids[target_box] = target_box_idx
+                self.box_coords[target_box_idx] = target_box
+        else:
+            target_box_idx = self.box_ids[target_box]
+
+        return source_box_idx, target_box_idx
 
     def copy(self):
         if self.move_pending:
@@ -201,10 +216,7 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
             box_rect_cnts = solution.box_rect_cnts.copy()
 
             rect_idx, target_pos, rotated = solution.pending_move_params
-            source_box = tuple(solution.locations[rect_idx] // solution.problem.box_length)
-            source_box_idx = solution.box_ids[source_box]
-            target_box = tuple(target_pos // solution.problem.box_length)
-            target_box_idx = solution.box_ids[target_box]
+            source_box_idx, target_box_idx = solution.get_source_target_box_ids(rect_idx, target_pos)
 
             box_rect_cnts[source_box_idx] -= 1
             box_rect_cnts[target_box_idx] += 1
@@ -227,11 +239,7 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
             box_occupancies = solution.box_occupancies.copy()
 
             rect_idx, target_pos, rotated = solution.pending_move_params
-
-            source_box = tuple(solution.locations[rect_idx] // solution.problem.box_length)
-            source_box_idx = solution.box_ids[source_box]
-            target_box = tuple(target_pos // solution.problem.box_length)
-            target_box_idx = solution.box_ids[target_box]
+            source_box_idx, target_box_idx = solution.get_source_target_box_ids(rect_idx, target_pos)
 
             box_occupancies[source_box_idx] -= solution.problem.areas[rect_idx]
             box_occupancies[target_box_idx] += solution.problem.areas[rect_idx]
