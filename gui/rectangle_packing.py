@@ -8,7 +8,7 @@ import copy
 
 from algos import local_search, greedy_search
 from gui import BaseGUI
-from problems.examples.rectangle_packing import RectanglePackingProblem
+from problems.examples.rectangle_packing import RectanglePackingProblem, RectanglePackingSolution
 
 
 class RectanglePackingGUI(BaseGUI):
@@ -419,7 +419,7 @@ class RectanglePackingGUI(BaseGUI):
         self.menu.resize(w, h, position=(1, 1, False))
         self.mini_menu.resize(w, h, position=(1, 1, False))
 
-    def set_current_solution(self, solution):
+    def set_current_solution(self, solution: RectanglePackingSolution):
         self.current_sol = solution
         self.rect_dims = self.get_rect_dimensions()
 
@@ -484,17 +484,15 @@ class RectanglePackingGUI(BaseGUI):
                     self.old_mouse_pos = mouse_pos
 
                 elif event.button == 1:  # left mousebutton
-                    locations, rotations = self.current_sol
                     if self.selected_rect_idx is None:
                         self.selected_rect_idx = rect_idx
                         self.selection_rotated = False
                     else:
-                        locations_new = locations.copy()
-                        locations_new[self.selected_rect_idx] = [x, y]
-                        rotations_new = rotations.copy()
-                        if self.selection_rotated:
-                            rotations_new[self.selected_rect_idx] = ~ rotations_new[self.selected_rect_idx]
-                        new_solution = (locations_new, rotations_new)
+                        new_solution = self.current_sol.copy()
+                        new_solution.make_standalone()
+                        rotated = self.selection_rotated != self.current_sol.rotations[self.selected_rect_idx]
+                        new_solution.move_rect(self.selected_rect_idx, np.array([x, y]), rotated)
+                        new_solution.apply_pending_move()
                         if self.problem.is_feasible(new_solution):
                             self.set_current_solution(new_solution)
                             self.selected_rect_idx = None
@@ -537,7 +535,7 @@ class RectanglePackingGUI(BaseGUI):
 
         # Highlight non-empty boxes
         l = self.problem.box_length
-        occupied_boxes = self.problem.get_occupied_boxes(self.current_sol)
+        occupied_boxes = self.current_sol.box_coords[self.current_sol.box_occupancies > 0]
         for (x, y) in occupied_boxes:
             self.draw_rect(x * l, y * l, l, l, color=self.colors['non_empty_boxes'])
 
@@ -621,12 +619,12 @@ class RectanglePackingGUI(BaseGUI):
 
     def draw_text_info(self):
         # Display current solution value
-        value = self.problem.f(self.current_sol)
+        value = self.problem.objective_function(self.current_sol)
         textsurface = self.font.render('Objective Value: %d' % value, True, self.colors['font'])
         self.screen.blit(textsurface, (32, 32))
 
         # Display current heuristic value
-        heuristic = self.problem.h(self.current_sol)
+        heuristic = self.problem.heuristic(self.current_sol)
         textsurface = self.font.render('Heuristic Value: %.2f' % heuristic, True, self.colors['font'])
         self.screen.blit(textsurface, (32, 70))
 
@@ -664,7 +662,8 @@ class RectanglePackingGUI(BaseGUI):
         """Returns an array containing all dimension information (x, y, w, h) for each rectangle."""
         dims = np.zeros((self.problem.num_rects, 4), dtype=np.int32)
 
-        locations, rotations = self.current_sol
+        locations = self.current_sol.locations
+        rotations = self.current_sol.rotations
         sizes = self.problem.sizes
 
         dims[:, 0:2] = locations

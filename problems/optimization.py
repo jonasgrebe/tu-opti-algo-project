@@ -8,7 +8,7 @@ class OptProblem(AbstractClass):
         self.is_max = is_max
 
     @abstractmethod
-    def f(self, x):
+    def objective_function(self, x):
         """Objective function of this optimization problem.
 
         :param x: the solution to evaluate
@@ -17,7 +17,7 @@ class OptProblem(AbstractClass):
         raise NotImplementedError
 
     @abstractmethod
-    def h(self, x):
+    def heuristic(self, x):
         """Heuristic function, can be used instead of the objective function.
 
         :param x: the solution to evaluate
@@ -33,3 +33,7 @@ class OptProblem(AbstractClass):
         :return: True if x is feasible else False
         """
         raise NotImplementedError
+
+
+class Solution:
+    pass

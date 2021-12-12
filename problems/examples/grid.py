@@ -7,7 +7,7 @@ class TwoDGridProblem(NeighborhoodProblem):
         super(TwoDGridProblem, self).__init__(**kwargs)
         self.f = f
 
-    def f(self, x):
+    def objective_function(self, x):
         pass
 
     def is_feasible(self, x):

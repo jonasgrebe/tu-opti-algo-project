@@ -9,6 +9,4 @@ import time
 problem = RectanglePackingProblem(8, 1000, 1, 8, 1, 8)
 init_sol = problem.get_arbitrary_solution()
 solution = local_search(init_sol, problem)
-# gui = RectanglePackingGUI()
-# gui.problem = problem
-# gui.set_current_solution(solution)
+print("objective value:", problem.objective_function(solution))
