@@ -12,8 +12,6 @@ MAX_SELECTED_PLACINGS = 4
 
 
 class RectanglePackingSolution(Solution):
-    """TODO: Doesn't support the creation of new boxes yet!"""
-
     def __init__(self, problem):
         super(RectanglePackingSolution, self).__init__()
 

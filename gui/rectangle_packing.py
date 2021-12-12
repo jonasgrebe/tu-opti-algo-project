@@ -10,6 +10,8 @@ from algos import local_search, greedy_search
 from gui import BaseGUI
 from problems.examples.rectangle_packing import RectanglePackingProblem, RectanglePackingSolution
 
+ZOOM_STEP_FACTOR = 1.1
+
 
 class RectanglePackingGUI(BaseGUI):
     def __init__(self):
@@ -48,7 +50,7 @@ class RectanglePackingGUI(BaseGUI):
 
     @property
     def field_size(self):
-        return np.round(self.config['field_size'] * self.zoom)
+        return np.round(self.config['field_size'] * self.zoom_level)
 
     def __init_gui(self):
         pygame.init()
@@ -66,7 +68,7 @@ class RectanglePackingGUI(BaseGUI):
         self.scr_marg_top = 0
 
         self.cam_pos = np.array([0, 0])
-        self.zoom = 1.0
+        self.zoom_level = 1.0
 
     def stop_search(self):
         # not private because search algorithm shall invoke it as well
@@ -502,10 +504,10 @@ class RectanglePackingGUI(BaseGUI):
                         self.selection_rotated = not self.selection_rotated
 
                 elif event.button == 4:  # mousewheel up
-                    self.zoom = min(self.zoom * 1.1, 3)
+                    self.zoom(zoom_in=True)
 
                 elif event.button == 5:  # mousewheel down
-                    self.zoom = max(self.zoom / 1.1, 0.25)
+                    self.zoom(zoom_in=False)
 
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 2:  # center mousebutton
@@ -518,6 +520,30 @@ class RectanglePackingGUI(BaseGUI):
 
             elif event.type == pygame.VIDEORESIZE:  # Resize pygame display area on window resize
                 self.resize_window(event.w, event.h)
+
+    def zoom(self, zoom_in: bool):
+        # Fetch info
+        window_size = np.asarray(pygame.display.get_surface().get_size())
+        mouse_pos = np.asarray(pygame.mouse.get_pos())
+        rel_mouse_pos = mouse_pos / window_size - 0.5
+        cam_center_pos = self.cam_pos - 0.5 * window_size
+
+        # Determine zoom level
+        zoom_step_factor = ZOOM_STEP_FACTOR if zoom_in else 1 / ZOOM_STEP_FACTOR
+        true_zoom_step_factor = np.round(self.config['field_size'] * self.zoom_level * zoom_step_factor) / \
+                                np.round(self.config['field_size'] * self.zoom_level)
+        target_zoom_level = self.zoom_level * true_zoom_step_factor
+        if target_zoom_level > 3 or target_zoom_level < 0.25:
+            return
+
+        # Adjust camera position
+        cam_zoom_shift = rel_mouse_pos * (1 - true_zoom_step_factor) * window_size
+        target_cam_center_pos = np.round(cam_center_pos * true_zoom_step_factor + cam_zoom_shift).astype(np.int)
+        target_cam_pos = target_cam_center_pos + 0.5 * window_size
+
+        # Set target values
+        self.cam_pos = target_cam_pos
+        self.zoom_level = target_zoom_level
 
     def __render(self):
         # Grid area
