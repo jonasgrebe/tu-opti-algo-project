@@ -9,13 +9,13 @@ class RectanglePackingSolution(Solution):
 
         self.problem = problem
 
-        self.locations = None
-        self.rotations = None
-
 
 class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
     def __init__(self, problem):
         super(RectanglePackingSolutionGeometryBased, self).__init__(problem)
+
+        self.locations = None
+        self.rotations = None
 
         self.box_ids = None
         self.box_coords = None
@@ -101,13 +101,13 @@ class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
         w, h = self.problem.sizes[rect_idx]
         if self.rotations[rect_idx]:
             w, h = h, w
-        self.boxes_grid[source_box_idx, x:x+w, y:y+h] -= 1
+        self.boxes_grid[source_box_idx, x:x + w, y:y + h] -= 1
 
         x, y = target_pos % self.problem.box_length
         w, h = self.problem.sizes[rect_idx]
         if rotated:
             w, h = h, w
-        self.boxes_grid[target_box_idx, x:x+w, y:y+h] += 1
+        self.boxes_grid[target_box_idx, x:x + w, y:y + h] += 1
 
         self.locations[rect_idx] = target_pos
         self.rotations[rect_idx] = rotated
@@ -166,3 +166,28 @@ class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
             self.box2rects = copy.deepcopy(self.box2rects)
             self.boxes_grid = self.boxes_grid.copy()
             self.standalone = True
+
+
+class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
+    def __init__(self, problem):
+        super(RectanglePackingSolutionRuleBased, self).__init__(problem)
+
+        self.rect_selection_order = None
+
+    def set_rect_selection_order(self, rect_selection_order):
+        self.rect_selection_order = rect_selection_order
+
+    def move_rect_to_order_pos(self, rect_idx, target_order_pos):
+        source_order_pos = np.where(self.rect_selection_order == rect_idx)[0]
+        if source_order_pos > target_order_pos:
+            self.rect_selection_order[target_order_pos + 1:source_order_pos + 1] = \
+                self.rect_selection_order[target_order_pos:source_order_pos]
+        elif source_order_pos < target_order_pos:
+            self.rect_selection_order[source_order_pos:target_order_pos] = \
+                self.rect_selection_order[source_order_pos + 1:target_order_pos + 1]
+        self.rect_selection_order[target_order_pos] = rect_idx
+
+    def copy(self):
+        duplicate = RectanglePackingSolutionRuleBased(self.problem)
+        duplicate.rect_selection_order = self.rect_selection_order.copy()
+        return duplicate
