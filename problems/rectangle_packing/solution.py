@@ -123,10 +123,12 @@ class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
         if target_box not in self.box_ids.keys():
             if self.box_rect_cnts[source_box_idx] == 1:
                 target_box_idx = source_box_idx
+                box_to_replace = source_box
             else:
                 target_box_idx = np.where(self.box_rect_cnts == 0)[0][0]
+                box_to_replace = tuple(self.box_coords[target_box_idx])
             if update_ids:
-                self.box_ids.pop(source_box)
+                self.box_ids.pop(box_to_replace)
                 self.box_ids[target_box] = target_box_idx
                 self.box_coords[target_box_idx] = target_box
         else:
