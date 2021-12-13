@@ -8,7 +8,7 @@ import copy
 
 from algos import local_search, greedy_search
 from gui import BaseGUI
-from problems.rectangle_packing.problem import RectanglePackingProblem, RectanglePackingSolutionGeometryBased
+from problems.rectangle_packing.problem import RectanglePackingProblemGeometryBased, RectanglePackingSolutionGeometryBased
 
 
 ZOOM_STEP_FACTOR = 1.1
@@ -364,7 +364,7 @@ class RectanglePackingGUI(BaseGUI):
         btn_configure.readonly = True
 
     def __setup_new_problem(self):
-        self.problem = RectanglePackingProblem(**self.problem_config)
+        self.problem = RectanglePackingProblemGeometryBased(**self.problem_config)
         self.problem_copy = copy.deepcopy(self.problem)
 
         self.init_sol = self.problem.get_arbitrary_solution()
@@ -374,7 +374,7 @@ class RectanglePackingGUI(BaseGUI):
         problem_config = self.problem_config.copy()
         problem_config.update(update_dict)
 
-        print(update_dict)
+        # print(update_dict)
 
         problem_config['w_min'] = min(problem_config['w_max'],
                                       min(problem_config['w_min'], problem_config['box_length']))
@@ -663,7 +663,11 @@ class RectanglePackingGUI(BaseGUI):
                 elapsed = self.search_stop_time - self.search_start_time
         else:
             elapsed = 0
-        textsurface = self.font.render('Elapsed Time: %.4f s' % elapsed, True, self.colors['font'])
+        minutes = elapsed // 60
+        seconds = int(elapsed)
+        milliseconds = int(elapsed*1000) % 1000
+        textsurface = self.font.render('Elapsed Time: %d:%02d:%03d min' % (minutes, seconds, milliseconds),
+                                       True, self.colors['font'])
         self.screen.blit(textsurface, ((self.screen.get_width() - self.font.size('Elapsed Time:')[0]) // 2, 32))
 
         # Display if current solution is optimal

@@ -1,8 +1,8 @@
-from problems.neighborhood import NeighborhoodProblem
-from problems.construction import IndependenceSystemProblem
+from abc import ABC
+
+from problems.neighborhood import NeighborhoodProblem, OptProblem
 from problems.rectangle_packing.solution import RectanglePackingSolutionGeometryBased
 import numpy as np
-import time
 import itertools
 
 
@@ -10,22 +10,15 @@ MAX_CONSIDERED_BOXES = 256
 MAX_SELECTED_PLACINGS = 4
 
 
-class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
-    def __init__(self, box_length, num_rects, w_min, w_max, h_min, h_max,
-                 neighborhood_relation="geometry_based", **kwargs):
-        super(RectanglePackingProblem, self).__init__(is_max=False, **kwargs)
+class RectanglePackingProblem(OptProblem, ABC):
+    def __init__(self, box_length, num_rects, w_min, w_max, h_min, h_max):
+        super(RectanglePackingProblem, self).__init__(is_max=False)
         self.box_length = box_length
         self.num_rects = num_rects
         self.w_min, self.w_max = w_min, w_max
         self.h_min, self.h_max = h_min, h_max
-        self.neighborhood_relation = neighborhood_relation
 
         self.__generate(box_length, num_rects, w_min, w_max, h_min, h_max)
-
-        # Compute the lower bound for the minimum
-        num_top_dogs = np.sum(self.top_dogs)  # each top dog rectangle requires an own box (no two top dogs in one rectangle)
-        min_box_required = np.ceil(np.sum(self.sizes[:, 0] * self.sizes[:, 1]) / self.box_length ** 2)
-        self.minimum_lower_bound = max(min_box_required, num_top_dogs)
 
     def __generate(self, box_length, num_rects, w_min, w_max, h_min, h_max):
         """Generates a new problem instance.
@@ -48,6 +41,22 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         self.areas = self.sizes[:, 0] * self.sizes[:, 1]
         oversize = self.box_length // 2
         self.top_dogs = np.all(self.sizes > oversize, axis=1)  # "Platzhirsche"
+
+        # Compute a lower bound for the minimum
+        # "top dog" := a rectangle that requires an own box (no two top dogs fit together into one box)
+        num_top_dogs = np.sum(self.top_dogs)
+        min_box_required = np.ceil(np.sum(self.sizes[:, 0] * self.sizes[:, 1]) / self.box_length ** 2)
+        self.minimum_lower_bound = max(min_box_required, num_top_dogs)
+
+    def is_optimal(self, solution: RectanglePackingSolutionGeometryBased):
+        """If True is returned, the solution is optimal
+        (otherwise no assertion can be made)."""
+        return self.objective_function(solution) <= self.minimum_lower_bound
+
+
+class RectanglePackingProblemGeometryBased(RectanglePackingProblem, NeighborhoodProblem):
+    def __init__(self, *args, **kwargs):
+        super(RectanglePackingProblemGeometryBased, self).__init__(*args, **kwargs)
 
     def objective_function(self, solution: RectanglePackingSolutionGeometryBased):
         """Returns the number of boxes occupied in the current solution. Function symbol f.
@@ -129,18 +138,9 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         return solution
 
     def get_neighborhood(self, solution: RectanglePackingSolutionGeometryBased):
-        if self.neighborhood_relation == "geometry_based":
-            return list(itertools.chain(*list(self.__place_all(solution))))
-        else:
-            raise NotImplementedError
+        return list(itertools.chain(*list(self.get_next_neighbors(solution))))
 
     def get_next_neighbors(self, solution: RectanglePackingSolutionGeometryBased):
-        if self.neighborhood_relation == "geometry_based":
-            return self.__place_all(solution)
-        else:
-            raise NotImplementedError
-
-    def __place_all(self, solution: RectanglePackingSolutionGeometryBased):
         """Returns all valid placing coordinates for all rectangles."""
         ordered_by_occupancy = solution.box_occupancies.argsort()[::-1]
 
@@ -208,16 +208,3 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
 
             # print("generating %d neighbors took %.3f s" % (len(solutions), time.time() - t))
             yield solutions
-
-    def is_optimal(self, solution: RectanglePackingSolutionGeometryBased):
-        """Returns true if the solution is optimal."""
-        return self.objective_function(solution) <= self.minimum_lower_bound
-
-    def get_elements(self):
-        pass
-
-    def c(self, e):
-        pass
-
-    def is_independent(self, solution: RectanglePackingSolutionGeometryBased):
-        pass
