@@ -10,7 +10,9 @@ from algos import local_search, greedy_search
 from gui import BaseGUI
 from problems.examples.rectangle_packing import RectanglePackingProblem, RectanglePackingSolution
 
+
 ZOOM_STEP_FACTOR = 1.1
+ANIM_SPEED = 0.1  # sec
 
 
 class RectanglePackingGUI(BaseGUI):
@@ -438,12 +440,12 @@ class RectanglePackingGUI(BaseGUI):
 
         # Select the rect to change
         self.selected_rect_idx = changed_rect_idx
-        time.sleep(0.5)
+        time.sleep(ANIM_SPEED)
 
         # Apply new solution
         solution.apply_pending_move()
         self.set_current_solution(solution)
-        time.sleep(0.5)
+        time.sleep(ANIM_SPEED)
 
         # Unselect the changed rect
         self.selected_rect_idx = None

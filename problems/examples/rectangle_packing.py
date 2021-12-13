@@ -6,7 +6,7 @@ import time
 import copy
 import itertools
 
-NUM_BOX_COLS = 4
+
 MAX_CONSIDERED_BOXES = 256
 MAX_SELECTED_PLACINGS = 4
 
@@ -228,6 +228,8 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
 
     def __rect_cnt_heuristic(self, solution: RectanglePackingSolution):
         """Depends on rectangle count per box."""
+        if solution.move_pending:
+            raise NotImplementedError
         cost = 1 - 0.5 ** solution.box_rect_cnts
         return np.sum(cost)
 
@@ -245,7 +247,7 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
             box_occupancies = solution.box_occupancies
 
         box_capacity = self.box_length ** 2
-        cost = 1 + (box_occupancies / box_capacity - 1) ** 3
+        cost = 1 + 0.9 * (box_occupancies[box_occupancies > 0] / box_capacity - 1) ** 3
         return np.sum(cost)
 
     def is_feasible(self, solution: RectanglePackingSolution):
@@ -270,31 +272,6 @@ class RectanglePackingProblem(NeighborhoodProblem, IndependenceSystemProblem):
         # ---- Second, check that no two rects intersect ----
         if np.any(solution.boxes_grid > 1):
             return False
-
-        # begins = locations.copy()
-        # ends = locations + sizes
-        #
-        # # Construct virtual grid world
-        # x_min = np.min(begins[:, 0])
-        # y_min = np.min(begins[:, 1])
-        # x_max = np.max(ends[:, 0])
-        # y_max = np.max(ends[:, 1])
-        # grid = np.zeros((x_max - x_min, y_max - y_min), dtype=np.bool)
-        #
-        # begins -= np.array([x_min, y_min])
-        # ends -= np.array([x_min, y_min])
-        #
-        # # Place each single rect into the grid world
-        # for begin, end in zip(begins, ends):
-        #     region_to_place = grid[begin[0]:end[0], begin[1]:end[1]]
-        #
-        #     # Check if region to place is already occupied
-        #     if np.any(region_to_place):
-        #         # There is already some other rect occupying the region to place
-        #         return False
-        #     else:
-        #         # Place rect into grid world
-        #         region_to_place[:] = 1
 
         return True
 
