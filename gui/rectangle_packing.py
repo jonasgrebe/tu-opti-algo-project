@@ -675,8 +675,9 @@ class RectanglePackingGUI(BaseGUI):
         left, top = view_top_left
         right, bottom = view_bottom_right
         xs, ys = occupied_boxes.T * l
-        visible_boxes = ((left <= xs + l - 1) & (xs < right)) & \
-                        ((top <= ys + l - 1) & (ys < bottom))
+        visible_boxes = ((left <= xs + l) & (xs < right)) & \
+                        ((top <= ys + l) & (ys < bottom))
+        print(" ", np.sum(visible_boxes), end="")
         return occupied_boxes[visible_boxes]
 
     def draw_rects(self, view_top_left, view_bottom_right):
