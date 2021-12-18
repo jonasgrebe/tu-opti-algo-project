@@ -498,8 +498,15 @@ class RectanglePackingGUI(BaseGUI):
         frame = 0
 
         while self.running:
+            t = time.time()
             self.__handle_user_input()
+            t_unser_input = time.time() - t
             self.__render()
+            t_total = time.time()
+            t_render = t_total - t_unser_input
+
+            # print("\rTime shares: Input handling %.1f - rendering %.1f" %
+            #       (t_unser_input / t_total, t_render / t_total), end="")
 
             self.frame_times[frame % 2000] = time.time()
             frame += 1
@@ -593,10 +600,12 @@ class RectanglePackingGUI(BaseGUI):
         self.zoom_level = target_zoom_level
 
     def __render(self):
-        # Grid area
+        times = np.zeros(7)
+        t = time.time()
+
+        # Screen area
         pygame.draw.rect(self.screen, self.colors['grid_bg'],
-                         [self.scr_marg_left - self.config['line_width'],
-                          self.scr_marg_top - self.config['line_width'],
+                         [self.scr_marg_left, self.scr_marg_top,
                           self.area_width, self.area_height])
 
         # Get visible grid boundary
@@ -606,26 +615,25 @@ class RectanglePackingGUI(BaseGUI):
         top_left = top_left.astype(np.int32)
         bottom_right = bottom_right.astype(np.int32)
 
+        times[0] = time.time() - t
+        t = time.time()
+
         # Highlight non-empty boxes
         l = self.problem.box_length
         occupied_boxes = self.current_sol.box_coords[self.current_sol.box_occupancies > 0]
         for (x, y) in occupied_boxes:
             self.draw_rect(x * l, y * l, l, l, color=self.colors['non_empty_boxes'])
 
-        # Draw grid lines
-        for y in range(top_left[1], bottom_right[1]):
-            self.draw_h_line(y, self.colors['grid_lines'])
-        for x in range(top_left[0], bottom_right[0]):
-            self.draw_v_line(x, self.colors['grid_lines'])
+        times[1] = time.time() - t
+        t = time.time()
+
+        self.draw_fine_grid(top_left, bottom_right)
 
         if self.problem is not None:
-            # Draw box boundary grid lines
-            for y in range(top_left[1], bottom_right[1]):
-                if y % self.problem.box_length == 0:
-                    self.draw_h_line(y, self.colors['box_boundary_lines'])
-            for x in range(top_left[0], bottom_right[0]):
-                if x % self.problem.box_length == 0:
-                    self.draw_v_line(x, self.colors['box_boundary_lines'])
+            self.draw_box_grid(top_left, bottom_right)
+
+            times[2] = time.time() - t
+            t = time.time()
 
             if self.current_sol is not None:
                 # Draw rectangles from current solution
@@ -635,13 +643,30 @@ class RectanglePackingGUI(BaseGUI):
 
                     self.draw_rect(x, y, w, h, color=color)
 
+            times[3] = time.time() - t
+            t = time.time()
+
         self.draw_hover_shape()
+
+        times[4] = time.time() - t
+        t = time.time()
 
         if self.problem is not None and self.current_sol is not None:
             self.draw_text_info()
 
+        times[5] = time.time() - t
+        t = time.time()
+
         if self.menu.is_enabled():
             self.menu.draw(self.screen)
+
+        times[6] = time.time() - t
+        t_total = np.sum(times)
+        shares = times / t_total
+
+        print("\rTime shares: preparations %.3f - box highlight %.3f - grid lines %.3f - "
+              "rects %.3f - hover %.3f - text %.3f - menu %.3f" %
+              (shares[0], shares[1], shares[2], shares[3], shares[4], shares[5], shares[6]), end="")
 
         # Update the screen
         pygame.display.flip()
@@ -649,31 +674,55 @@ class RectanglePackingGUI(BaseGUI):
     def draw_rect(self, x, y, w, h, color, surface=None):
         if surface is None:
             surface = self.screen
-        pygame.draw.rect(surface, color,
-                         [self.cam_pos[0] + self.scr_marg_left + x * self.field_size,
-                          self.cam_pos[1] + self.scr_marg_top + y * self.field_size,
-                          w * self.field_size - self.config['line_width'],
-                          h * self.field_size - self.config['line_width']])
+        x_p, y_p, w_p, h_p = self.coords2pixels(x, y, w, h)
+        pygame.draw.rect(surface, color, [x_p, y_p, w_p, h_p])
 
-    def draw_h_line(self, y, color):
-        start = [self.scr_marg_left,
-                 self.cam_pos[1] + self.scr_marg_top + y * self.field_size - self.config['line_width']]
-        end = [self.area_width,
-               self.cam_pos[1] + self.scr_marg_top + y * self.field_size - self.config['line_width']]
-        pygame.draw.line(self.screen, color, start, end, self.config['line_width'])
+    def coords2pixels(self, x, y, w=None, h=None):
+        x_p = self.cam_pos[0] + self.scr_marg_left + x * self.field_size
+        y_p = self.cam_pos[1] + self.scr_marg_top + y * self.field_size
+        if w is None or h is None:
+            return x_p, y_p
+        else:
+            w_p = w * self.field_size - self.config['line_width']
+            h_p = h * self.field_size - self.config['line_width']
+            return x_p, y_p, w_p, h_p
 
-    def draw_v_line(self, x, color):
-        start = [self.cam_pos[0] + self.scr_marg_left + x * self.field_size - self.config['line_width'],
-                 self.scr_marg_top]
-        end = [self.cam_pos[0] + self.scr_marg_left + x * self.field_size - self.config['line_width'],
-               self.area_height]
-        pygame.draw.line(self.screen, color, start, end, self.config['line_width'])
+    def draw_fine_grid(self, top_left, bottom_right):
+        xs = np.arange(top_left[0], bottom_right[0])
+        ys = np.arange(top_left[1], bottom_right[1])
+        self.draw_grid(xs, ys, self.colors['grid_lines'])
+
+    def draw_box_grid(self, top_left, bottom_right):
+        xs = np.arange(top_left[0], bottom_right[0])
+        ys = np.arange(top_left[1], bottom_right[1])
+        xs = xs[xs % self.problem.box_length == 0]
+        ys = ys[ys % self.problem.box_length == 0]
+        self.draw_grid(xs, ys, self.colors['box_boundary_lines'])
+
+    def draw_grid(self, xs, ys, color):
+        xs_p, ys_p = self.coords2pixels(xs, ys)
+        xs_p -= self.config['line_width']
+        ys_p -= self.config['line_width']
+
+        # Draw vertical lines
+        one_side = self.scr_marg_top - self.config['line_width']
+        other_side = self.area_height + self.config['line_width']
+        self.draw_lines(xs_p, True, one_side, other_side, color)
+
+        # Draw horizontal lines
+        one_side = self.scr_marg_left - self.config['line_width']
+        other_side = self.area_width + self.config['line_width']
+        self.draw_lines(ys_p, False, one_side, other_side, color)
+
+    def draw_lines(self, positions, vertical, one_side, other_side, color):
+        positions_ax1 = np.repeat(positions, 2)
+        positions_ax2 = np.tile([one_side, other_side, other_side, one_side], len(positions) // 2 + 1)[:len(positions_ax1)]
+        if not vertical:
+            positions_ax1, positions_ax2 = positions_ax2, positions_ax1
+        point_list = np.stack([positions_ax1, positions_ax2], axis=1)
+        pygame.draw.lines(self.screen, color, False, point_list, self.config['line_width'])
 
     def draw_hover_shape(self):
-        hover_surface = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
-        hover_surface.set_alpha(60)
-        hover_surface.set_colorkey((0, 0, 0))
-
         mouse_pos = np.asarray(pygame.mouse.get_pos())
         x, y = self.mouse_pos_to_field_coords(mouse_pos)
         rect_under_mouse = self.get_rect_idx_at(x, y)
@@ -687,19 +736,24 @@ class RectanglePackingGUI(BaseGUI):
         else:
             w, h = 1, 1
 
-        self.draw_rect(x, y, w, h, self.colors['hover'], surface=hover_surface)
-        self.screen.blit(hover_surface, (0, 0))
+        x_p, y_p, w_p, h_p = self.coords2pixels(x, y, w, h)
+
+        hover_surface = pygame.Surface((w_p, h_p))
+        hover_surface.set_alpha(60)
+        hover_surface.set_colorkey((0, 0, 0))
+        pygame.draw.rect(hover_surface, self.colors['hover'], [0, 0, w_p, h_p])
+        self.screen.blit(hover_surface, (x_p, y_p))
 
     def draw_text_info(self):
         # Display current solution value
         value = self.problem.objective_function(self.current_sol)
-        textsurface = self.font.render('Objective Value: %d' % value, True, self.colors['font'])
-        self.screen.blit(textsurface, (32, 32))
+        text_surface = self.font.render('Objective Value: %d' % value, True, self.colors['font'])
+        self.screen.blit(text_surface, (32, 32))
 
         # Display current heuristic value
         heuristic = self.problem.heuristic(self.current_sol)
-        textsurface = self.font.render('Heuristic Value: %.2f' % heuristic, True, self.colors['font'])
-        self.screen.blit(textsurface, (32, 70))
+        text_surface = self.font.render('Heuristic Value: %.2f' % heuristic, True, self.colors['font'])
+        self.screen.blit(text_surface, (32, 70))
 
         if self.search_start_time is not None:
             if self.is_searching:
@@ -712,21 +766,21 @@ class RectanglePackingGUI(BaseGUI):
         minutes = elapsed // 60
         seconds = int(elapsed)
         milliseconds = int(elapsed*1000) % 1000
-        textsurface = self.font.render('Elapsed Time: %d:%02d:%03d min' % (minutes, seconds, milliseconds),
+        text_surface = self.font.render('Elapsed Time: %d:%02d:%03d min' % (minutes, seconds, milliseconds),
                                        True, self.colors['font'])
-        self.screen.blit(textsurface, ((self.screen.get_width() - self.font.size('Elapsed Time:')[0]) // 2, 32))
+        self.screen.blit(text_surface, ((self.screen.get_width() - self.font.size('Elapsed Time:')[0]) // 2, 32))
 
         # Display if current solution is optimal
         if self.problem.is_optimal(self.current_sol):
-            textsurface = self.font.render('This solution is optimal.', True, self.colors['font'])
-            self.screen.blit(textsurface, (32, 108))
+            text_surface = self.font.render('This solution is optimal.', True, self.colors['font'])
+            self.screen.blit(text_surface, (32, 108))
 
         # FPS
         t = time.time()
         during_last_sec = (t - self.frame_times) < 1
         fps = np.sum(during_last_sec)
-        textsurface = self.font.render('FPS: %d' % int(fps), True, self.colors['font'])
-        self.screen.blit(textsurface, (32, 146))
+        text_surface = self.font.render('FPS: %d' % int(fps), True, self.colors['font'])
+        self.screen.blit(text_surface, (32, 146))
 
     def mouse_pos_to_field_coords(self, mouse_pos):
         field_y = mouse_pos[1] - self.scr_marg_top - self.cam_pos[1]
@@ -736,12 +790,29 @@ class RectanglePackingGUI(BaseGUI):
         return x_coord, y_coord
 
     def get_rect_idx_at(self, x, y):
+        # if self.current_sol is None:
+        #     return None
+        # np.where(self.current_sol)
+
         if self.rect_dims is None:
             return None
-        for rect_idx, (rx, ry, rw, rh) in enumerate(self.rect_dims):
-            if rx <= x < rx + rw and ry <= y < ry + rh:
-                return rect_idx
-        return None
+
+        xs, ys, ws, hs = self.rect_dims.T
+
+        result = np.where((xs <= x) &
+                          (x < xs + ws) &
+                          (ys <= y) &
+                          (y < ys + hs))[0]
+
+        if not result:
+            return None
+        else:
+            return result[0]
+
+        # for rect_idx, (rx, ry, rw, rh) in enumerate(self.rect_dims):
+        #     if rx <= x < rx + rw and ry <= y < ry + rh:
+        #         return rect_idx
+        # return None
 
     def get_rect_dimensions(self):
         """Returns an array containing all dimension information (x, y, w, h) for each rectangle."""
