@@ -35,8 +35,8 @@ class RectanglePackingProblem(OptProblem, ABC):
         assert h_min <= box_length and h_max <= box_length
 
         # Generate rectangles with uniformly random side lengths (width and height)
-        widths = np.random.randint(w_min, w_max, size=num_rects)
-        heights = np.random.randint(h_min, h_max, size=num_rects)
+        widths = np.random.randint(w_min, w_max+1, size=num_rects)
+        heights = np.random.randint(h_min, h_max+1, size=num_rects)
         self.sizes = np.stack([widths, heights], axis=1)
         self.areas = self.sizes[:, 0] * self.sizes[:, 1]
         oversize = self.box_length // 2

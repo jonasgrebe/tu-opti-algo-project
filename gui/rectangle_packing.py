@@ -22,7 +22,6 @@ class RectanglePackingGUI(BaseGUI):
         # Problem constants
         self.problem_config = dict(box_length=8, num_rects=32, w_min=1, w_max=8, h_min=1, h_max=8)
         self.problem = None
-        self.problem_copy = None
         self.init_sol = None
 
         self.current_sol = None
@@ -43,6 +42,7 @@ class RectanglePackingGUI(BaseGUI):
 
         self.search = local_search  # the search algorithm routine
         self.is_searching = False
+        self.is_paused = False
         self.search_thread = None
         self.search_start_time = None
 
@@ -74,14 +74,15 @@ class RectanglePackingGUI(BaseGUI):
 
     def stop_search(self):
         # not private because search algorithm shall invoke it as well
-        self.is_searching = False
         self.search_stop_time = time.time()
+        self.is_searching = False
 
         btn_search = self.menu.get_widget('run_search')
         btn_search.set_title('Run Search')
 
         btn_configure = self.menu.get_widget('configure_problem')
         btn_configure.readonly = False
+
 
     def __setup_menu(self):
 
@@ -105,6 +106,8 @@ class RectanglePackingGUI(BaseGUI):
             height=self.screen.get_height(),
             mouse_motion_selection=True,
             theme=theme,
+            columns=2,
+            rows=10,
             title='',
         )
 
@@ -297,11 +300,36 @@ class RectanglePackingGUI(BaseGUI):
         dropselect_algorithm.set_onmouseover(lambda: button_onmouseover(dropselect_algorithm))
         dropselect_algorithm.set_onmouseleave(lambda: button_onmouseleave(dropselect_algorithm))
 
+        dropselect_heuristic = self.menu.add.dropselect(
+            title='Heuristic',
+            items=[
+                ('None', None),
+                ('Geometric', None),
+                ('Something Else', None)
+            ],
+            dropselect_id='heuristic',
+            font_size=20,
+            onchange=None,
+            padding=10,
+            default=0,
+            placeholder='Select one',
+            selection_box_height=5,
+            selection_box_inflate=(0, 10),
+            selection_box_margin=5,
+            selection_box_text_margin=10,
+            selection_box_width=200,
+            selection_option_font_size=20,
+            background_color=(0, 0, 0),
+        )
+        dropselect_heuristic.set_onmouseover(lambda: button_onmouseover(dropselect_heuristic))
+        dropselect_heuristic.set_onmouseleave(lambda: button_onmouseleave(dropselect_heuristic))
+
         def run_search():
             btn_search = self.menu.get_widget('run_search')
             if not self.is_searching:
                 self.__start_search()
             else:
+                self.is_paused = True
                 self.stop_search()
 
         btn_search = self.menu.add.button(
@@ -318,13 +346,16 @@ class RectanglePackingGUI(BaseGUI):
         btn_search.set_onmouseleave(lambda: button_onmouseleave(btn_search))
 
         def reset_search():
-            btn_reset = self.menu.get_widget('reset_search')
+            #btn_reset = self.menu.get_widget('reset_search')
+
             if self.is_searching:
                 self.stop_search()
-            self.search_start_time = None
+                self.search_thread.join()
 
-            self.problem = self.problem_copy
-            self.set_current_solution(self.init_sol)
+            self.search_start_time = None
+            self.search_stop_time = None
+
+            self.set_current_solution(copy.deepcopy(self.init_sol))
 
         btn_reset = self.menu.add.button(
             'Reset Search',
@@ -355,7 +386,10 @@ class RectanglePackingGUI(BaseGUI):
                                                                         self.problem, self))
         self.search_thread.start()
 
-        self.search_start_time = time.time()
+        if self.is_paused:
+            self.is_paused = False
+        else:
+            self.search_start_time = time.time()
 
         btn_search = self.menu.get_widget('run_search')
         btn_search.set_title('Pause Search')
@@ -365,26 +399,29 @@ class RectanglePackingGUI(BaseGUI):
 
     def __setup_new_problem(self):
         self.problem = RectanglePackingProblemGeometryBased(**self.problem_config)
-        self.problem_copy = copy.deepcopy(self.problem)
 
-        self.init_sol = self.problem.get_arbitrary_solution()
-        self.set_current_solution(self.init_sol)
+        sol = self.problem.get_arbitrary_solution()
+        self.init_sol = copy.deepcopy(sol)
+        self.set_current_solution(sol)
 
     def __update_problem_config(self, update_dict: dict):
         problem_config = self.problem_config.copy()
         problem_config.update(update_dict)
 
-        # print(update_dict)
+        L = problem_config['box_length']
+        N = problem_config['num_rects']
 
-        problem_config['w_min'] = min(problem_config['w_max'],
-                                      min(problem_config['w_min'], problem_config['box_length']))
-        problem_config['w_max'] = max(problem_config['w_min'],
-                                      min(problem_config['w_max'], problem_config['box_length']))
-        problem_config['h_min'] = min(problem_config['h_max'],
-                                      min(problem_config['h_min'], problem_config['box_length']))
-        problem_config['h_max'] = max(problem_config['h_min'],
-                                      min(problem_config['h_max'], problem_config['box_length']))
+        # ensure that w_min, w_max, h_min, h_max <= L
+        problem_config['w_min'] = min(problem_config['w_min'], L)
+        problem_config['w_max'] = min(problem_config['w_max'], L)
+        problem_config['h_min'] = min(problem_config['h_min'], L)
+        problem_config['h_max'] = min(problem_config['h_max'], L)
 
+        # ensure that w_min <= w_max
+        problem_config['w_min'] = min(problem_config['w_max'], problem_config['w_min'])
+        problem_config['h_min'] = min(problem_config['h_max'], problem_config['h_min'])
+
+        # get all the widgets and update their values
         rangeslider_box_length = self.mini_menu.get_widget('rangeslider_box_length')
         rangeslider_num_rects = self.mini_menu.get_widget('rangeslider_num_rects')
         rangeslider_w_min = self.mini_menu.get_widget('rangeslider_w_min')
@@ -392,18 +429,18 @@ class RectanglePackingGUI(BaseGUI):
         rangeslider_h_min = self.mini_menu.get_widget('rangeslider_h_min')
         rangeslider_h_max = self.mini_menu.get_widget('rangeslider_h_max')
 
-        rangeslider_box_length.set_value(problem_config['box_length'])
-        rangeslider_num_rects.set_value(problem_config['num_rects'])
+        rangeslider_box_length.set_value(L)
+        rangeslider_num_rects.set_value(N)
 
         rangeslider_w_min.set_value(problem_config['w_min'])
         rangeslider_w_max.set_value(problem_config['w_max'])
         rangeslider_h_min.set_value(problem_config['h_min'])
         rangeslider_h_max.set_value(problem_config['h_max'])
 
-        rangeslider_w_min._range_values = (1, problem_config['w_max'] - 1)
-        rangeslider_w_max._range_values = (problem_config['w_min'] + 1, problem_config['box_length'])
-        rangeslider_h_min._range_values = (1, problem_config['h_max'] - 1)
-        rangeslider_h_max._range_values = (problem_config['h_min'] + 1, problem_config['box_length'])
+        rangeslider_w_min._range_values = (1, L)
+        rangeslider_w_max._range_values = (1, L)
+        rangeslider_h_min._range_values = (1, L)
+        rangeslider_h_max._range_values = (1, L)
 
         for k, v in update_dict.items():
             if self.problem_config[k] != v:
@@ -433,6 +470,7 @@ class RectanglePackingGUI(BaseGUI):
         current_sol_matrix[:, 0:2], current_sol_matrix[:, 2] = self.current_sol.locations, self.current_sol.rotations
         new_sol_matrix[:, 0:2], new_sol_matrix[:, 2] = solution.locations, solution.rotations
         differences = np.any(current_sol_matrix != new_sol_matrix, axis=1)
+
         if not np.any(differences):
             changed_rect_idx = solution.pending_move_params[0]
         else:
@@ -663,6 +701,7 @@ class RectanglePackingGUI(BaseGUI):
                 elapsed = self.search_stop_time - self.search_start_time
         else:
             elapsed = 0
+
         minutes = elapsed // 60
         seconds = int(elapsed)
         milliseconds = int(elapsed*1000) % 1000
