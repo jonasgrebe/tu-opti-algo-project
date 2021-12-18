@@ -72,6 +72,8 @@ class RectanglePackingGUI(BaseGUI):
         self.cam_pos = np.array([0, 0])
         self.zoom_level = 1.0
 
+        self.frame_times = np.zeros(2000, dtype=np.float)
+
     def stop_search(self):
         # not private because search algorithm shall invoke it as well
         self.search_stop_time = time.time()
@@ -493,9 +495,14 @@ class RectanglePackingGUI(BaseGUI):
         self.__setup_menu()
         self.__setup_new_problem()
 
+        frame = 0
+
         while self.running:
             self.__handle_user_input()
             self.__render()
+
+            self.frame_times[frame % 2000] = time.time()
+            frame += 1
 
         pygame.quit()
 
@@ -713,6 +720,13 @@ class RectanglePackingGUI(BaseGUI):
         if self.problem.is_optimal(self.current_sol):
             textsurface = self.font.render('This solution is optimal.', True, self.colors['font'])
             self.screen.blit(textsurface, (32, 108))
+
+        # FPS
+        t = time.time()
+        during_last_sec = (t - self.frame_times) < 1
+        fps = np.sum(during_last_sec)
+        textsurface = self.font.render('FPS: %d' % int(fps), True, self.colors['font'])
+        self.screen.blit(textsurface, (32, 146))
 
     def mouse_pos_to_field_coords(self, mouse_pos):
         field_y = mouse_pos[1] - self.scr_marg_top - self.cam_pos[1]
