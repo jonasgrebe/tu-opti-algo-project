@@ -618,11 +618,7 @@ class RectanglePackingGUI(BaseGUI):
         times[0] = time.time() - t
         t = time.time()
 
-        # Highlight non-empty boxes
-        l = self.problem.box_length
-        occupied_boxes = self.current_sol.box_coords[self.current_sol.box_occupancies > 0]
-        for (x, y) in occupied_boxes:
-            self.draw_rect(x * l, y * l, l, l, color=self.colors['non_empty_boxes'])
+        self.highlight_non_empty_boxes(top_left, bottom_right)
 
         times[1] = time.time() - t
         t = time.time()
@@ -636,12 +632,7 @@ class RectanglePackingGUI(BaseGUI):
             t = time.time()
 
             if self.current_sol is not None:
-                # Draw rectangles from current solution
-                for rect_idx, (x, y, w, h) in enumerate(self.rect_dims):
-                    color = self.colors['rectangles_search'] if self.is_searching else self.colors['rectangles']
-                    color = self.colors['active_rectangle'] if rect_idx == self.selected_rect_idx else color
-
-                    self.draw_rect(x, y, w, h, color=color)
+                self.draw_rects(top_left, bottom_right)
 
             times[3] = time.time() - t
             t = time.time()
@@ -670,6 +661,45 @@ class RectanglePackingGUI(BaseGUI):
 
         # Update the screen
         pygame.display.flip()
+
+    def highlight_non_empty_boxes(self, view_top_left, view_bottom_right):
+        l = self.problem.box_length
+        # occupied_boxes = self.current_sol.box_coords[self.current_sol.box_occupancies > 0]
+        visible_boxes = self.get_visible_boxes(view_top_left, view_bottom_right)
+        for (x, y) in visible_boxes:
+            self.draw_rect(x * l, y * l, l, l, color=self.colors['non_empty_boxes'])
+
+    def get_visible_boxes(self, view_top_left, view_bottom_right):
+        l = self.problem.box_length
+        occupied_boxes = self.current_sol.box_coords[self.current_sol.box_occupancies > 0]
+        left, top = view_top_left
+        right, bottom = view_bottom_right
+        xs, ys = occupied_boxes.T * l
+        visible_boxes = ((left <= xs + l - 1) & (xs < right)) & \
+                        ((top <= ys + l - 1) & (ys < bottom))
+        return occupied_boxes[visible_boxes]
+
+    def draw_rects(self, view_top_left, view_bottom_right):
+        # Identify visible rects
+        top_lefts = self.rect_dims[:, [0, 1]]
+        top_rights = top_lefts.copy()
+        top_rights[:, 0] += self.rect_dims[:, 2]
+        bottom_lefts = top_lefts.copy()
+        bottom_lefts[:, 1] += self.rect_dims[:, 3]
+        bottom_rights = top_lefts + self.rect_dims[:, [2, 3]]
+
+        inside_view = np.zeros(self.problem.num_rects, dtype=np.bool)
+        for corners in [top_lefts, top_rights, bottom_lefts, bottom_rights]:
+            inside_view |= np.all(view_top_left <= corners, axis=1) & \
+                           np.all(corners < view_bottom_right, axis=1)
+
+        visible_rect_ids = np.where(inside_view)[0]
+
+        for rect_idx in visible_rect_ids:
+            x, y, w, h = self.rect_dims[rect_idx]
+            color = self.colors['rectangles_search'] if self.is_searching else self.colors['rectangles']
+            color = self.colors['active_rectangle'] if rect_idx == self.selected_rect_idx else color
+            self.draw_rect(x, y, w, h, color=color)
 
     def draw_rect(self, x, y, w, h, color, surface=None):
         if surface is None:
