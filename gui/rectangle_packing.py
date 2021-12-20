@@ -331,10 +331,7 @@ class RectanglePackingGUI(BaseGUI):
 
         def dropselect_neighborhood_onchange(s, *args) -> None:
             self.stop_search()
-
-            dropselect_neighborhood = self.menu.get_widget('neighborhood')
             self.problem_type_name = args[0]
-
             print(self.problem_type_name)
 
         dropselect_neighborhood = self.menu.add.dropselect(
@@ -567,6 +564,17 @@ class RectanglePackingGUI(BaseGUI):
     def get_current_solution(self):
         return self.current_sol
 
+    def get_rect_info(self, rect_idx):
+        """rect_idx can also be a list of indices."""
+        x, y = self.current_sol.locations[rect_idx].T
+        w, h = self.problem.sizes[rect_idx].T
+        rotations = self.current_sol.rotations[rect_idx]
+        if np.isscalar(rect_idx):
+            w, h = h, w
+        else:
+            w[rotations], h[rotations] = h[rotations], w[rotations]
+        return x, y, w, h
+
     def set_and_animate_solution(self, solution: RectanglePackingSolution):
         # Identify modified rect
         current_sol_matrix = np.zeros((self.problem.num_rects, 3))
@@ -786,12 +794,13 @@ class RectanglePackingGUI(BaseGUI):
 
     def draw_rects(self, view_top_left, view_bottom_right):
         # Identify visible rects
-        top_lefts = self.rect_dims[:, [0, 1]]
+        locations, sizes = self.current_sol.locations, self.current_sol.problem.sizes
+        top_lefts = locations.copy()
         top_rights = top_lefts.copy()
-        top_rights[:, 0] += self.rect_dims[:, 2]
+        top_rights[:, 0] += sizes[:, 0]
         bottom_lefts = top_lefts.copy()
-        bottom_lefts[:, 1] += self.rect_dims[:, 3]
-        bottom_rights = top_lefts + self.rect_dims[:, [2, 3]]
+        bottom_lefts[:, 1] += sizes[:, 1]
+        bottom_rights = top_lefts + sizes
 
         inside_view = np.zeros(self.problem.num_rects, dtype=np.bool)
         for corners in [top_lefts, top_rights, bottom_lefts, bottom_rights]:
@@ -799,9 +808,10 @@ class RectanglePackingGUI(BaseGUI):
                            np.all(corners < view_bottom_right, axis=1)
 
         visible_rect_ids = np.where(inside_view)[0]
+        visible_rect_ids = visible_rect_ids[self.current_sol.is_put[visible_rect_ids]]
 
         for rect_idx in visible_rect_ids:
-            x, y, w, h = self.rect_dims[rect_idx]
+            x, y, w, h = self.get_rect_info(rect_idx)
             color = self.colors['rectangles_search'] if self.is_searching else self.colors['rectangles']
             color = self.colors['active_rectangle'] if rect_idx == self.selected_rect_idx else color
             self.draw_rect(x, y, w, h, color=color)
@@ -863,11 +873,11 @@ class RectanglePackingGUI(BaseGUI):
         rect_under_mouse = self.get_rect_idx_at(x, y)
 
         if self.selected_rect_idx is not None:
-            w, h = self.rect_dims[self.selected_rect_idx, 2:4]
+            w, h = self.problem.sizes[self.selected_rect_idx]
             if self.selection_rotated:
                 w, h = h, w
         elif rect_under_mouse is not None:
-            x, y, w, h = self.rect_dims[rect_under_mouse]
+            x, y, w, h = self.get_rect_info(rect_under_mouse)
         else:
             w, h = 1, 1
 
@@ -925,10 +935,10 @@ class RectanglePackingGUI(BaseGUI):
         return x_coord, y_coord
 
     def get_rect_idx_at(self, x, y):
-        if self.rect_dims is None:
+        if self.current_sol is None:
             return None
 
-        xs, ys, ws, hs = self.rect_dims.T
+        xs, ys, ws, hs = self.get_rect_info(range(self.problem.num_rects))
 
         result = np.where((xs <= x) &
                           (x < xs + ws) &

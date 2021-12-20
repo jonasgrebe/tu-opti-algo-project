@@ -206,12 +206,15 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
         self.rotations = np.zeros(self.problem.num_rects, dtype=np.bool)
         self.is_put = np.zeros(self.problem.num_rects, dtype=np.bool)
 
-        self.box_ids = {}
         self.box_coords = np.zeros((self.problem.num_rects, 2), dtype=np.int)
+        num_cols = int(np.ceil(np.sqrt(self.problem.num_rects)))
+        self.box_coords[:, 0] = np.arange(self.problem.num_rects) % num_cols
+        self.box_coords[:, 1] = np.arange(self.problem.num_rects) // num_cols
+        self.box_ids = {tuple(box): idx for idx, box in enumerate(self.box_coords)}
 
         self.box_occupancies = np.zeros(self.problem.num_rects, dtype=np.int)
         self.box_rect_cnts = np.zeros(self.problem.num_rects, dtype=np.int)
-        self.box2rects = {}
+        self.box2rects = {idx: [] for idx in range(self.problem.num_rects)}
 
         self.boxes_grid = np.zeros((self.problem.num_rects,
                                     self.problem.box_length,
@@ -221,7 +224,7 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
         self.rect_order = rect_selection_order
 
     def move_rect_to_order_pos(self, rect_idx, target_order_pos):
-        source_order_pos = np.where(self.rect_order == rect_idx)[0]
+        source_order_pos = np.where(self.rect_order == rect_idx)[0][0]
         if source_order_pos > target_order_pos:
             self.rect_order[target_order_pos + 1:source_order_pos + 1] = \
                 self.rect_order[target_order_pos:source_order_pos]
