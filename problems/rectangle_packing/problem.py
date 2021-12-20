@@ -244,7 +244,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
 
     def get_arbitrary_solution(self):
         solution = RectanglePackingSolutionRuleBased(self)
-        solution.initialize()
+        solution.reset()
         solution.rect_order = np.arange(self.num_rects)
         return solution
 
@@ -255,6 +255,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
         return np.sum(sol.box_rect_cnts > 0)
 
     def put_all_rects(self, sol: RectanglePackingSolutionRuleBased):
+        sol.reset()
         for rect_idx in sol.rect_order:
             selected_box_ids = np.arange(self.num_rects)  # TODO: reduce selection
             for rotate in [False, True]:
@@ -268,6 +269,9 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
         sol.placed = True
 
     def heuristic(self, sol: RectanglePackingSolutionRuleBased):
+        if not sol.placed:
+            self.put_all_rects(sol)
+
         box_occupancies = sol.box_occupancies
         box_capacity = self.box_length ** 2
         cost = 1 + 0.9 * (box_occupancies[box_occupancies > 0] / box_capacity - 1) ** 3

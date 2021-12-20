@@ -201,7 +201,7 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
         self.rect_order = None
         self.placed = False
 
-    def initialize(self):
+    def reset(self):
         self.locations = np.zeros((self.problem.num_rects, 2), dtype=np.int)
         self.rotations = np.zeros(self.problem.num_rects, dtype=np.bool)
         self.is_put = np.zeros(self.problem.num_rects, dtype=np.bool)
@@ -232,6 +232,8 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
             self.rect_order[source_order_pos:target_order_pos] = \
                 self.rect_order[source_order_pos + 1:target_order_pos + 1]
         self.rect_order[target_order_pos] = rect_idx
+        self.placed = False
+        self.is_put[min(rect_idx, target_order_pos):] = False
 
     def copy(self):
         duplicate = RectanglePackingSolutionRuleBased(self.problem)

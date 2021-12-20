@@ -35,8 +35,8 @@ def local_search(init_solution, problem: NeighborhoodProblem, gui: BaseGUI = Non
 
         if gui is not None:
             if gui.is_searching:
-                gui.set_and_animate_solution(current_solution)
-                # gui.set_current_solution(current_solution)
+                # gui.set_and_animate_solution(current_solution)
+                gui.set_current_solution(current_solution)
             else:
                 break
 

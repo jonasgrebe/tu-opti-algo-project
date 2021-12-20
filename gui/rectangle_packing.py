@@ -332,7 +332,7 @@ class RectanglePackingGUI(BaseGUI):
         def dropselect_neighborhood_onchange(s, *args) -> None:
             self.stop_search()
             self.problem_type_name = args[0]
-            print(self.problem_type_name)
+            # print(self.problem_type_name)
 
         dropselect_neighborhood = self.menu.add.dropselect(
             title='Neigborhood',
@@ -500,7 +500,7 @@ class RectanglePackingGUI(BaseGUI):
 
     def __setup_new_problem(self):
         self.problem = self.problem_types[self.problem_type_name](**self.problem_config)
-        print(self.problem_types[self.problem_type_name].__class__)
+        # print(self.problem_types[self.problem_type_name].__class__)
         sol = self.problem.get_arbitrary_solution()
         self.init_sol = copy.deepcopy(sol)
         self.set_current_solution(sol)
@@ -765,9 +765,9 @@ class RectanglePackingGUI(BaseGUI):
         t_total = np.sum(times)
         shares = times / t_total
 
-        print("\rTime shares: preparations %.3f - box highlight %.3f - grid lines %.3f - "
-              "rects %.3f - hover %.3f - text %.3f - menu %.3f" %
-              (shares[0], shares[1], shares[2], shares[3], shares[4], shares[5], shares[6]), end="")
+        # print("\rTime shares: preparations %.3f - box highlight %.3f - grid lines %.3f - "
+        #       "rects %.3f - hover %.3f - text %.3f - menu %.3f" %
+        #       (shares[0], shares[1], shares[2], shares[3], shares[4], shares[5], shares[6]), end="")
 
         self.__render_rectangle_preview()
 
@@ -789,7 +789,7 @@ class RectanglePackingGUI(BaseGUI):
         xs, ys = occupied_boxes.T * l
         visible_boxes = ((left <= xs + l) & (xs < right)) & \
                         ((top <= ys + l) & (ys < bottom))
-        print(" ", np.sum(visible_boxes), end="")
+        # print(" ", np.sum(visible_boxes), end="")
         return occupied_boxes[visible_boxes]
 
     def draw_rects(self, view_top_left, view_bottom_right):
@@ -909,7 +909,7 @@ class RectanglePackingGUI(BaseGUI):
             elapsed = 0
 
         minutes = elapsed // 60
-        seconds = int(elapsed)
+        seconds = int(elapsed) % 60
         milliseconds = int(elapsed*1000) % 1000
         text_surface = self.font.render('Elapsed Time: %d:%02d:%03d min' % (minutes, seconds, milliseconds),
                                        True, self.colors['font'])
