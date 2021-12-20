@@ -22,6 +22,13 @@ class RectanglePackingGUI(BaseGUI):
         # Problem constants
         self.problem_config = dict(box_length=8, num_rects=32, w_min=1, w_max=8, h_min=1, h_max=8)
         self.problem = None
+        self.problem_type_name = 'rectangle_packing_geometry_based'
+        self.problem_types = {
+            'rectangle_packing_geometry_based': RectanglePackingProblemGeometryBased,
+            'rectangle_packing_rule_based': RectanglePackingProblemRuleBased,
+            #'rectangle_packing_strategy_1': None,
+            #'rectangle_packing_strategy_2': None
+        }
         self.init_sol = None
 
         self.current_sol = None
@@ -40,7 +47,13 @@ class RectanglePackingGUI(BaseGUI):
         self.render_thread = threading.Thread(target=self.__run)
         self.render_thread.start()
 
+        self.search_algorithm_name = 'local_search' # ['local_search', 'greedy_search']
         self.search = local_search  # the search algorithm routine
+        self.search_algorithms = {
+            'local_search': local_search,
+            'greedy_search': greedy_search
+        }
+
         self.is_searching = False
         self.is_paused = False
         self.search_thread = None
@@ -108,7 +121,7 @@ class RectanglePackingGUI(BaseGUI):
             height=self.screen.get_height(),
             mouse_motion_selection=True,
             theme=theme,
-            columns=2,
+            columns=1,
             rows=10,
             title='',
         )
@@ -272,18 +285,32 @@ class RectanglePackingGUI(BaseGUI):
             self.stop_search()
 
             btn_search = self.menu.get_widget('run_search')
-            algorithm = args[0]
-            self.search = algorithm
+            self.search_algorithm_name = args[0]
+            self.search = self.search_algorithms[self.search_algorithm_name]
+
+            if self.search_algorithm_name == 'local_search':
+                dropselect_neighborhood = self.menu.get_widget('neighborhood')
+                dropselect_selection_strategy = self.menu.get_widget('selection_strategy')
+                dropselect_neighborhood.show()
+                dropselect_selection_strategy.hide()
+
+            elif self.search_algorithm_name == 'greedy_search':
+                dropselect_neighborhood = self.menu.get_widget('neighborhood')
+                dropselect_selection_strategy = self.menu.get_widget('selection_strategy')
+                dropselect_neighborhood.hide()
+                dropselect_selection_strategy.show()
+
 
             # btn_search.readonly = False
             btn_search.is_selectable = True
             btn_search.set_cursor(pygame_menu.locals.CURSOR_HAND)
 
+
         dropselect_algorithm = self.menu.add.dropselect(
             title='Algorithm',
             items=[
-                ('Local Search', local_search),
-                ('Greedy Search', greedy_search)
+                ('Local Search', 'local_search'),
+                ('Greedy Search', 'greedy_search')
             ],
             dropselect_id='algorithm',
             font_size=20,
@@ -302,16 +329,23 @@ class RectanglePackingGUI(BaseGUI):
         dropselect_algorithm.set_onmouseover(lambda: button_onmouseover(dropselect_algorithm))
         dropselect_algorithm.set_onmouseleave(lambda: button_onmouseleave(dropselect_algorithm))
 
-        dropselect_heuristic = self.menu.add.dropselect(
-            title='Heuristic',
+        def dropselect_neighborhood_onchange(s, *args) -> None:
+            self.stop_search()
+
+            dropselect_neighborhood = self.menu.get_widget('neighborhood')
+            self.problem_type_name = args[0]
+
+            print(self.problem_type_name)
+
+        dropselect_neighborhood = self.menu.add.dropselect(
+            title='Neigborhood',
             items=[
-                ('None', None),
-                ('Geometric', None),
-                ('Something Else', None)
+                ('Geometry-based', 'rectangle_packing_geometry_based'),
+                ('Rule-based', 'rectangle_packing_rule_based'),
             ],
-            dropselect_id='heuristic',
+            dropselect_id='neighborhood',
             font_size=20,
-            onchange=None,
+            onchange=dropselect_neighborhood_onchange,
             padding=10,
             default=0,
             placeholder='Select one',
@@ -323,8 +357,39 @@ class RectanglePackingGUI(BaseGUI):
             selection_option_font_size=20,
             background_color=(0, 0, 0),
         )
-        dropselect_heuristic.set_onmouseover(lambda: button_onmouseover(dropselect_heuristic))
-        dropselect_heuristic.set_onmouseleave(lambda: button_onmouseleave(dropselect_heuristic))
+        dropselect_neighborhood.set_onmouseover(lambda: button_onmouseover(dropselect_neighborhood))
+        dropselect_neighborhood.set_onmouseleave(lambda: button_onmouseleave(dropselect_neighborhood))
+
+        def dropselect_selection_strategy_onchange(s, *args) -> None:
+            self.stop_search()
+
+            dropselect_selection_strategy = self.menu.get_widget('selection_strategy')
+            neighboorhood_type = args[0]
+
+        dropselect_selection_strategy = self.menu.add.dropselect(
+            title='Strategy',
+            items=[
+                ('Random', None),
+                ('Largest First', None),
+            ],
+            dropselect_id='selection_strategy',
+            font_size=20,
+            onchange=dropselect_selection_strategy_onchange,
+            padding=10,
+            default=0,
+            placeholder='Select one',
+            selection_box_height=5,
+            selection_box_inflate=(0, 10),
+            selection_box_margin=5,
+            selection_box_text_margin=10,
+            selection_box_width=200,
+            selection_option_font_size=20,
+            background_color=(0, 0, 0),
+        )
+        dropselect_selection_strategy.set_onmouseover(lambda: button_onmouseover(dropselect_selection_strategy))
+        dropselect_selection_strategy.set_onmouseleave(lambda: button_onmouseleave(dropselect_selection_strategy))
+        dropselect_selection_strategy.hide()
+
 
         def run_search():
             btn_search = self.menu.get_widget('run_search')
@@ -382,6 +447,43 @@ class RectanglePackingGUI(BaseGUI):
         btn_exit.set_onmouseover(lambda: button_onmouseover(btn_exit))
         btn_exit.set_onmouseleave(lambda: button_onmouseleave(btn_exit))
 
+
+    def __render_rectangle_preview(self):
+
+        if self.search_algorithm_name != 'greedy_search':
+            return
+
+        bg_color = [0, 0, 0]
+
+        margin_top = self.field_size
+        margin_bot = self.field_size
+        margin_left = self.field_size
+        margin_vertical = self.field_size
+
+        reference_size = self.problem.h_max
+        preview_height = reference_size * self.field_size + margin_top + margin_bot
+        y_offset = self.screen.get_height() - preview_height
+
+        pygame.draw.rect(self.screen, bg_color,  [0, y_offset, self.screen.get_width(), preview_height])
+
+        x = margin_left
+        y = y_offset + margin_top
+
+        for rect_idx in range(self.problem.num_rects):
+            w, h = self.problem.sizes[rect_idx]
+
+            if self.current_sol.is_put[rect_idx]:
+                continue
+
+            if x + w * self.field_size + margin_vertical >= self.screen.get_width():
+                break
+
+            pygame.draw.rect(self.screen, self.colors['rectangles'], [x, y + (reference_size - h) * self.field_size, w * self.field_size, h * self.field_size])
+            x += w * self.field_size + margin_vertical
+
+
+
+
     def __start_search(self):
         self.is_searching = True
         self.search_thread = threading.Thread(target=self.search, args=(self.get_current_solution(),
@@ -400,7 +502,7 @@ class RectanglePackingGUI(BaseGUI):
         btn_configure.readonly = True
 
     def __setup_new_problem(self):
-        self.problem = RectanglePackingProblemGeometryBased(**self.problem_config)
+        self.problem = self.problem_types[self.problem_type_name](**self.problem_config)
 
         sol = self.problem.get_arbitrary_solution()
         self.init_sol = copy.deepcopy(sol)
@@ -658,6 +760,8 @@ class RectanglePackingGUI(BaseGUI):
         print("\rTime shares: preparations %.3f - box highlight %.3f - grid lines %.3f - "
               "rects %.3f - hover %.3f - text %.3f - menu %.3f" %
               (shares[0], shares[1], shares[2], shares[3], shares[4], shares[5], shares[6]), end="")
+
+        self.__render_rectangle_preview()
 
         # Update the screen
         pygame.display.flip()
