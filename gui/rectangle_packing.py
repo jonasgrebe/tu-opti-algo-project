@@ -925,10 +925,6 @@ class RectanglePackingGUI(BaseGUI):
         return x_coord, y_coord
 
     def get_rect_idx_at(self, x, y):
-        # if self.current_sol is None:
-        #     return None
-        # np.where(self.current_sol)
-
         if self.rect_dims is None:
             return None
 
@@ -939,15 +935,10 @@ class RectanglePackingGUI(BaseGUI):
                           (ys <= y) &
                           (y < ys + hs))[0]
 
-        if not result:
+        if len(result) == 0:
             return None
         else:
             return result[0]
-
-        # for rect_idx, (rx, ry, rw, rh) in enumerate(self.rect_dims):
-        #     if rx <= x < rx + rw and ry <= y < ry + rh:
-        #         return rect_idx
-        # return None
 
     def get_rect_dimensions(self):
         """Returns an array containing all dimension information (x, y, w, h) for each rectangle."""

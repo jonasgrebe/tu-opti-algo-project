@@ -7,19 +7,19 @@ class TwoDGridProblem(NeighborhoodProblem):
         super(TwoDGridProblem, self).__init__(**kwargs)
         self.f = f
 
-    def objective_function(self, x):
+    def objective_function(self, sol):
         pass
 
-    def is_feasible(self, x):
-        x, y = x
-        return isinstance(x, int) and isinstance(y, int)
+    def is_feasible(self, sol):
+        sol, y = sol
+        return isinstance(sol, int) and isinstance(y, int)
 
-    def get_neighborhood(self, x):
-        x, y = x
-        return [(x + 1, y + 1),
-                (x - 1, y + 1),
-                (x + 1, y - 1),
-                (x - 1, y - 1)]
+    def get_neighborhood(self, sol):
+        sol, y = sol
+        return [(sol + 1, y + 1),
+                (sol - 1, y + 1),
+                (sol + 1, y - 1),
+                (sol - 1, y - 1)]
 
     def get_arbitrary_solution(self):
         x = random.randint(-10, 10)
