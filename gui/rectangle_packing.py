@@ -570,7 +570,8 @@ class RectanglePackingGUI(BaseGUI):
         w, h = self.problem.sizes[rect_idx].T
         rotations = self.current_sol.rotations[rect_idx]
         if np.isscalar(rect_idx):
-            w, h = h, w
+            if rotations:
+                w, h = h, w
         else:
             w[rotations], h[rotations] = h[rotations], w[rotations]
         return x, y, w, h
@@ -794,18 +795,13 @@ class RectanglePackingGUI(BaseGUI):
 
     def draw_rects(self, view_top_left, view_bottom_right):
         # Identify visible rects
-        locations, sizes = self.current_sol.locations, self.current_sol.problem.sizes
-        top_lefts = locations.copy()
-        top_rights = top_lefts.copy()
-        top_rights[:, 0] += sizes[:, 0]
-        bottom_lefts = top_lefts.copy()
-        bottom_lefts[:, 1] += sizes[:, 1]
-        bottom_rights = top_lefts + sizes
+        x, y, w, h = self.get_rect_info(range(self.problem.num_rects))
 
-        inside_view = np.zeros(self.problem.num_rects, dtype=np.bool)
-        for corners in [top_lefts, top_rights, bottom_lefts, bottom_rights]:
-            inside_view |= np.all(view_top_left <= corners, axis=1) & \
-                           np.all(corners < view_bottom_right, axis=1)
+        view_left, view_top = view_top_left
+        view_right, view_bottom = view_bottom_right
+
+        inside_view = (view_left <= x + w) & (x < view_right) & \
+                      (view_top <= y + h) & (y < view_bottom)
 
         visible_rect_ids = np.where(inside_view)[0]
         visible_rect_ids = visible_rect_ids[self.current_sol.is_put[visible_rect_ids]]
@@ -873,7 +869,7 @@ class RectanglePackingGUI(BaseGUI):
         rect_under_mouse = self.get_rect_idx_at(x, y)
 
         if self.selected_rect_idx is not None:
-            w, h = self.problem.sizes[self.selected_rect_idx]
+            _, _, w, h = self.get_rect_info(self.selected_rect_idx)
             if self.selection_rotated:
                 w, h = h, w
         elif rect_under_mouse is not None:
