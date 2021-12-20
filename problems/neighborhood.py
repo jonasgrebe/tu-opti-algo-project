@@ -8,19 +8,19 @@ class NeighborhoodProblem(OptProblem):
         super(NeighborhoodProblem, self).__init__(**kwargs)
 
     @abstractmethod
-    def get_neighborhood(self, x):
+    def get_neighborhood(self, sol):
         """Returns the neighborhood of feasible instance x.
 
-        :param x: feasible solution x
+        :param sol: feasible solution x
         :return: List of (feasible) solutions
         """
         raise NotImplementedError
 
     @abstractmethod
-    def get_next_neighbors(self, x):
+    def get_next_neighbors(self, sol):
         """Yields the next set of neighbors not yielded yet.
 
-        :param x: feasible solution x
+        :param sol: feasible solution x
         :return: Next (feasible) solution
         """
         raise NotImplementedError
