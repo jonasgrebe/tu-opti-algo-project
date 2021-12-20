@@ -8,7 +8,7 @@ import copy
 
 from algos import local_search, greedy_search
 from gui import BaseGUI
-from problems.rectangle_packing.problem import RectanglePackingProblemGeometryBased, RectanglePackingSolutionGeometryBased
+from problems.rectangle_packing.problem import RectanglePackingProblemGeometryBased, RectanglePackingSolution, RectanglePackingProblemRuleBased
 
 
 ZOOM_STEP_FACTOR = 1.1
@@ -503,7 +503,7 @@ class RectanglePackingGUI(BaseGUI):
 
     def __setup_new_problem(self):
         self.problem = self.problem_types[self.problem_type_name](**self.problem_config)
-
+        print(self.problem_types[self.problem_type_name].__class__)
         sol = self.problem.get_arbitrary_solution()
         self.init_sol = copy.deepcopy(sol)
         self.set_current_solution(sol)
@@ -560,14 +560,14 @@ class RectanglePackingGUI(BaseGUI):
         self.menu.resize(w, h, position=(1, 1, False))
         self.mini_menu.resize(w, h, position=(1, 1, False))
 
-    def set_current_solution(self, solution: RectanglePackingSolutionGeometryBased):
+    def set_current_solution(self, solution: RectanglePackingSolution):
         self.current_sol = solution
         self.rect_dims = self.get_rect_dimensions()
 
     def get_current_solution(self):
         return self.current_sol
 
-    def set_and_animate_solution(self, solution: RectanglePackingSolutionGeometryBased):
+    def set_and_animate_solution(self, solution: RectanglePackingSolution):
         # Identify modified rect
         current_sol_matrix = np.zeros((self.problem.num_rects, 3))
         new_sol_matrix = np.zeros((self.problem.num_rects, 3))
