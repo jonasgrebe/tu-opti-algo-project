@@ -266,7 +266,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
         sol.reset()
         for rect_idx in sol.rect_order:
             selected_box_ids = np.arange(self.num_rects)  # TODO: reduce selection
-            for rotate in [False, True]:
+            for rotate in [False, True]:  # TODO
                 rect_size = self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1]
                 place_locations = self.place(rect_size=rect_size,
                                              boxes_grid=sol.boxes_grid,
