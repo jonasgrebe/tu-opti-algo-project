@@ -9,10 +9,10 @@ import copy
 from algos import local_search, greedy_search
 from gui import BaseGUI
 from problems.rectangle_packing.problem import RectanglePackingProblemGeometryBased, RectanglePackingSolution, \
-    RectanglePackingProblemRuleBased
+    RectanglePackingProblemRuleBased, RectanglePackingSolutionGeometryBased
 
 ZOOM_STEP_FACTOR = 1.1
-ANIM_SPEED = 0.1  # sec
+ANIM_SPEED = 0.5  # sec
 
 
 class RectanglePackingGUI(BaseGUI):
@@ -39,6 +39,7 @@ class RectanglePackingGUI(BaseGUI):
         self.dragging_camera = False
         self.old_mouse_pos = None
         self.selected_rect_idx = None
+        self.highlighted_rects = None
         self.selection_rotated = False
 
         with open("gui/config.json") as json_data_file:
@@ -329,7 +330,7 @@ class RectanglePackingGUI(BaseGUI):
         def dropselect_neighborhood_onchange(s, *args) -> None:
             self.stop_search()
             self.problem_type_name = args[0]
-            # print(self.problem_type_name)
+            self.__setup_new_problem()
 
         dropselect_neighborhood = self.menu.add.dropselect(
             title='Neigborhood',
@@ -493,10 +494,10 @@ class RectanglePackingGUI(BaseGUI):
 
     def __setup_new_problem(self):
         self.problem = self.problem_types[self.problem_type_name](**self.problem_config)
-        # print(self.problem_types[self.problem_type_name].__class__)
         sol = self.problem.get_arbitrary_solution()
         self.init_sol = copy.deepcopy(sol)
         self.set_current_solution(sol)
+        self.highlighted_rects = np.zeros(self.problem.num_rects, dtype=np.bool)
 
     def __update_problem_config(self, update_dict: dict):
         problem_config = self.problem_config.copy()
@@ -569,30 +570,40 @@ class RectanglePackingGUI(BaseGUI):
             w[rotations], h[rotations] = h[rotations], w[rotations]
         return x, y, w, h
 
-    def set_and_animate_solution(self, solution: RectanglePackingSolution):
-        # Identify modified rect
-        current_sol_matrix = np.zeros((self.problem.num_rects, 3))
-        new_sol_matrix = np.zeros((self.problem.num_rects, 3))
-        current_sol_matrix[:, 0:2], current_sol_matrix[:, 2] = self.current_sol.locations, self.current_sol.rotations
-        new_sol_matrix[:, 0:2], new_sol_matrix[:, 2] = solution.locations, solution.rotations
-        differences = np.any(current_sol_matrix != new_sol_matrix, axis=1)
-
-        if not np.any(differences):
-            changed_rect_idx = solution.pending_move_params[0]
+    def set_and_animate_solution(self, sol: RectanglePackingSolution):
+        # Identify modified rect and highlight it
+        if isinstance(sol, RectanglePackingSolutionGeometryBased) and sol.move_pending:
+            changed_rect_idx = sol.pending_move_params[0]
+            self.highlighted_rects[changed_rect_idx] = True
         else:
-            changed_rect_idx = np.argmax(differences)
+            diff = np.any(sol.locations != self.current_sol.locations, axis=1) | \
+                   (sol.rotations != self.current_sol.rotations)
+            self.highlighted_rects[:] = diff
+        time.sleep(ANIM_SPEED)
+
+        # current_sol_matrix = np.zeros((self.problem.num_rects, 3))
+        # new_sol_matrix = np.zeros((self.problem.num_rects, 3))
+        # current_sol_matrix[:, 0:2], current_sol_matrix[:, 2] = self.current_sol.locations, self.current_sol.rotations
+        # new_sol_matrix[:, 0:2], new_sol_matrix[:, 2] = sol.locations, sol.rotations
+        # differences = np.any(current_sol_matrix != new_sol_matrix, axis=1)
+
+        # if not np.any(differences):
+        #     changed_rect_idx = sol.pending_move_params[0]
+        # else:
+        #     changed_rect_idx = np.argmax(differences)
 
         # Select the rect to change
-        self.selected_rect_idx = changed_rect_idx
-        time.sleep(ANIM_SPEED)
+        # self.selected_rect_idx = changed_rect_idx
+
+        if isinstance(sol, RectanglePackingSolutionGeometryBased):
+            sol.apply_pending_move()
 
         # Apply new solution
-        solution.apply_pending_move()
-        self.set_current_solution(solution)
+        self.set_current_solution(sol)
         time.sleep(ANIM_SPEED)
 
-        # Unselect the changed rect
-        self.selected_rect_idx = None
+        # Unhighlight the changed rects
+        self.highlighted_rects[:] = None
 
     def __run(self):
         self.__init_gui()
@@ -802,7 +813,10 @@ class RectanglePackingGUI(BaseGUI):
         for rect_idx in visible_rect_ids:
             x, y, w, h = self.get_rect_info(rect_idx)
             color = self.colors['rectangles_search'] if self.is_searching else self.colors['rectangles']
-            color = self.colors['active_rectangle'] if rect_idx == self.selected_rect_idx else color
+            if rect_idx == self.selected_rect_idx:
+                color = self.colors['active_rectangle']
+            elif self.highlighted_rects[rect_idx]:
+                color = self.colors['highlighted_rectangle']
             self.draw_rect(x, y, w, h, color=color)
 
     def draw_rect(self, x, y, w, h, color, surface=None):

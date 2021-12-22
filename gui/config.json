@@ -35,6 +35,11 @@
             10,
             100
         ],
+        "highlighted_rectangle": [
+            10,
+            100,
+            250
+        ],
         "non_empty_boxes": [
             50,
             50,
