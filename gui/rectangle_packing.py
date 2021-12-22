@@ -8,8 +8,8 @@ import copy
 
 from algos import local_search, greedy_search
 from gui import BaseGUI
-from problems.rectangle_packing.problem import RectanglePackingProblemGeometryBased, RectanglePackingSolution, RectanglePackingProblemRuleBased
-
+from problems.rectangle_packing.problem import RectanglePackingProblemGeometryBased, RectanglePackingSolution, \
+    RectanglePackingProblemRuleBased
 
 ZOOM_STEP_FACTOR = 1.1
 ANIM_SPEED = 0.1  # sec
@@ -26,8 +26,8 @@ class RectanglePackingGUI(BaseGUI):
         self.problem_types = {
             'rectangle_packing_geometry_based': RectanglePackingProblemGeometryBased,
             'rectangle_packing_rule_based': RectanglePackingProblemRuleBased,
-            #'rectangle_packing_strategy_1': None,
-            #'rectangle_packing_strategy_2': None
+            # 'rectangle_packing_strategy_1': None,
+            # 'rectangle_packing_strategy_2': None
         }
         self.init_sol = None
 
@@ -47,7 +47,7 @@ class RectanglePackingGUI(BaseGUI):
         self.render_thread = threading.Thread(target=self.__run)
         self.render_thread.start()
 
-        self.search_algorithm_name = 'local_search' # ['local_search', 'greedy_search']
+        self.search_algorithm_name = 'local_search'  # ['local_search', 'greedy_search']
         self.search = local_search  # the search algorithm routine
         self.search_algorithms = {
             'local_search': local_search,
@@ -97,7 +97,6 @@ class RectanglePackingGUI(BaseGUI):
 
         btn_configure = self.menu.get_widget('configure_problem')
         btn_configure.readonly = False
-
 
     def __setup_menu(self):
 
@@ -300,11 +299,9 @@ class RectanglePackingGUI(BaseGUI):
                 dropselect_neighborhood.hide()
                 dropselect_selection_strategy.show()
 
-
             # btn_search.readonly = False
             btn_search.is_selectable = True
             btn_search.set_cursor(pygame_menu.locals.CURSOR_HAND)
-
 
         dropselect_algorithm = self.menu.add.dropselect(
             title='Algorithm',
@@ -387,7 +384,6 @@ class RectanglePackingGUI(BaseGUI):
         dropselect_selection_strategy.set_onmouseleave(lambda: button_onmouseleave(dropselect_selection_strategy))
         dropselect_selection_strategy.hide()
 
-
         def run_search():
             btn_search = self.menu.get_widget('run_search')
             if not self.is_searching:
@@ -410,7 +406,7 @@ class RectanglePackingGUI(BaseGUI):
         btn_search.set_onmouseleave(lambda: button_onmouseleave(btn_search))
 
         def reset_search():
-            #btn_reset = self.menu.get_widget('reset_search')
+            # btn_reset = self.menu.get_widget('reset_search')
 
             if self.is_searching:
                 self.stop_search()
@@ -444,7 +440,6 @@ class RectanglePackingGUI(BaseGUI):
         btn_exit.set_onmouseover(lambda: button_onmouseover(btn_exit))
         btn_exit.set_onmouseleave(lambda: button_onmouseleave(btn_exit))
 
-
     def __render_rectangle_preview(self):
 
         if self.search_algorithm_name != 'greedy_search':
@@ -461,7 +456,7 @@ class RectanglePackingGUI(BaseGUI):
         preview_height = reference_size * self.field_size + margin_top + margin_bot
         y_offset = self.screen.get_height() - preview_height
 
-        pygame.draw.rect(self.screen, bg_color,  [0, y_offset, self.screen.get_width(), preview_height])
+        pygame.draw.rect(self.screen, bg_color, [0, y_offset, self.screen.get_width(), preview_height])
 
         x = margin_left
         y = y_offset + margin_top
@@ -475,11 +470,9 @@ class RectanglePackingGUI(BaseGUI):
             if x + w * self.field_size + margin_vertical >= self.screen.get_width():
                 break
 
-            pygame.draw.rect(self.screen, self.colors['rectangles'], [x, y + (reference_size - h) * self.field_size, w * self.field_size, h * self.field_size])
+            pygame.draw.rect(self.screen, self.colors['rectangles'],
+                             [x, y + (reference_size - h) * self.field_size, w * self.field_size, h * self.field_size])
             x += w * self.field_size + margin_vertical
-
-
-
 
     def __start_search(self):
         self.is_searching = True
@@ -857,7 +850,8 @@ class RectanglePackingGUI(BaseGUI):
 
     def draw_lines(self, positions, vertical, one_side, other_side, color):
         positions_ax1 = np.repeat(positions, 2)
-        positions_ax2 = np.tile([one_side, other_side, other_side, one_side], len(positions) // 2 + 1)[:len(positions_ax1)]
+        positions_ax2 = np.tile([one_side, other_side, other_side, one_side], len(positions) // 2 + 1)[
+                        :len(positions_ax1)]
         if not vertical:
             positions_ax1, positions_ax2 = positions_ax2, positions_ax1
         point_list = np.stack([positions_ax1, positions_ax2], axis=1)
@@ -906,9 +900,9 @@ class RectanglePackingGUI(BaseGUI):
 
         minutes = elapsed // 60
         seconds = int(elapsed) % 60
-        milliseconds = int(elapsed*1000) % 1000
+        milliseconds = int(elapsed * 1000) % 1000
         text_surface = self.font.render('Elapsed Time: %d:%02d:%03d min' % (minutes, seconds, milliseconds),
-                                       True, self.colors['font'])
+                                        True, self.colors['font'])
         self.screen.blit(text_surface, ((self.screen.get_width() - self.font.size('Elapsed Time:')[0]) // 2, 32))
 
         # Display if current solution is optimal
