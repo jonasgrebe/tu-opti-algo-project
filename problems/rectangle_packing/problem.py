@@ -57,15 +57,20 @@ class RectanglePackingProblem(OptProblem, ABC):
         regions_to_place = np.lib.stride_tricks.sliding_window_view(boxes_grid[selected_box_ids],
                                                                     rect_size, axis=(1, 2))
         b, x, y = np.where(~np.any(regions_to_place, axis=(3, 4)))
+
+        # Consider only one placement per box
+        b_cmp = b.copy()
+        b_cmp[0] = -1
+        b_cmp[1:] = b[:-1]
+        first_valid_placement = b_cmp < b
+        b, x, y, = b[first_valid_placement], x[first_valid_placement], y[first_valid_placement]
+
+        # Convert into location data
         b_id = selected_box_ids[b]
         b_loc = box_coords[b_id] * self.box_length
         locs = b_loc + np.stack([x, y], axis=1)
 
-        # Consider only one placement per box
-        b_id_cmp = np.zeros(b_id.shape, dtype=np.int)
-        b_id_cmp[1:] = b_id[:-1]
-        is_first_valid_placement = b_id_cmp < b_id
-        return locs[is_first_valid_placement][:MAX_SELECTED_PLACINGS]
+        return locs
 
     def get_good_rect_selection_order(self, box_occupancies, box2rects):
         # Drop rects which lie in very full boxes
@@ -210,6 +215,9 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
                                            boxes_grid=solution.boxes_grid,
                                            selected_box_ids=selected_box_ids,
                                            box_coords=solution.box_coords)
+
+                # Prune abundant options
+                relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
 
                 # Generate new solutions
                 for loc in relevant_locs:
