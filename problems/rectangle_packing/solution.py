@@ -87,6 +87,12 @@ class RectanglePackingSolution(Solution):
         else:
             return None
 
+    def get_occupied_box_ids(self) -> np.array:
+        return np.where(self.box_rect_cnts > 0)[0]
+
+    def get_empty_box_ids(self) -> np.array:
+        return np.where(self.box_rect_cnts == 0)[0]
+
 
 class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
     def __init__(self, problem):
@@ -253,12 +259,9 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
         return duplicate
 
 
-
 class RectanglePackingSolutionGreedy(RectanglePackingSolution):
-
     def __init__(self, problem):
         super(RectanglePackingSolutionGreedy, self).__init__(problem)
-
 
     def reset(self):
         self.locations = np.zeros((self.problem.num_rects, 2), dtype=np.int)

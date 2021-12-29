@@ -72,12 +72,12 @@ class RectanglePackingProblem(OptProblem, ABC):
         b_loc = box_coords[b_id] * self.box_length
         locs = b_loc + np.stack([x, y], axis=1)
 
-        return locs
+        return locs, b
 
-    def get_good_rect_selection_order(self, box_occupancies, box2rects):
+    def get_rect_selection_order(self, box_occupancies, box2rects, occupancy_threshold=0.9, keep_top_dogs=False):
         # Drop rects which lie in very full boxes
         box_capacity = self.box_length ** 2
-        almost_full = box_occupancies / box_capacity > 0.9
+        almost_full = box_occupancies / box_capacity > occupancy_threshold
 
         rect_lists = list(box2rects.values())
         rect_cnts = np.array(list(map(len, rect_lists)))[~almost_full]
@@ -96,8 +96,17 @@ class RectanglePackingProblem(OptProblem, ABC):
 
         rect_ids = np.concatenate(rect_ids).astype(np.int)
 
-        # Throw away all top-dogs
-        return rect_ids[~self.top_dogs[rect_ids]]
+        if not keep_top_dogs:
+            # Throw away all top-dogs
+            rect_ids = rect_ids[~self.top_dogs[rect_ids]]
+
+        return rect_ids
+
+    def get_rect_area(self, rect_idx):
+        return np.prod(self.sizes[rect_idx])
+
+    def get_rect_areas(self):
+        return np.prod(self.sizes, axis=1)
 
 
 class RectanglePackingProblemGeometryBased(RectanglePackingProblem, NeighborhoodProblem):
@@ -193,7 +202,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         ordered_by_occupancy = solution.box_occupancies.argsort()[::-1]
 
         # ---- Preprocessing: Determine a good rect selection order ----
-        rect_ids = self.get_good_rect_selection_order(solution.box_occupancies, solution.box2rects)
+        rect_ids = self.get_rect_selection_order(solution.box_occupancies, solution.box2rects)
 
         # ---- Check placements using sliding window approach ----
         for rect_idx in rect_ids:
@@ -213,10 +222,10 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
                     size = size[::-1]
 
                 # Identify all locations which are allowed for placement
-                relevant_locs = self.place(rect_size=size,
-                                           boxes_grid=solution.boxes_grid,
-                                           selected_box_ids=selected_box_ids,
-                                           box_coords=solution.box_coords)
+                relevant_locs, _ = self.place(rect_size=size,
+                                              boxes_grid=solution.boxes_grid,
+                                              selected_box_ids=selected_box_ids,
+                                              box_coords=solution.box_coords)
 
                 # Prune abundant options
                 relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
@@ -243,11 +252,20 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
         if not sol.placed:
             self.put_all_rects(sol)
 
-        rect_ids = self.get_good_rect_selection_order(sol.box_occupancies, sol.box2rects)
+        rect_selection = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=0.9,
+                                                       keep_top_dogs=True)
+        rect_areas = self.get_rect_areas()
+        max_area = max(rect_areas)
+        min_area = min(rect_areas)
 
-        for rect_idx in rect_ids:
-            target_order_pos = 0  # TODO
-
+        for rect_idx, rect_area in zip(rect_selection, rect_areas[rect_selection]):
+            # Set target order position depending on rectangle area, TODO: Is this a good target order position?
+            if min_area == max_area:
+                target_order_pos = 0
+            else:
+                # target_order_pos = int((self.num_rects - 1) * (1 - (rect_area - min_area) /
+                #                                                (max_area - min_area)))
+                target_order_pos = 0
             new_sol = sol.copy()
             new_sol.move_rect_to_order_pos(rect_idx, target_order_pos)
             yield [new_sol]
@@ -264,18 +282,33 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
 
         return np.sum(sol.box_rect_cnts > 0)
 
+    def select_boxes_to_place(self, sol: RectanglePackingSolutionRuleBased, rect_idx: int):
+        rect_area = np.prod(self.sizes[rect_idx])
+        box_capacity = self.box_length ** 2
+
+        box_selection = np.where((sol.box_occupancies > 0) &
+                                 (sol.box_occupancies <= box_capacity - rect_area))
+
+        # Add an empty box to selection (such a box always exists ir rect_idx isn't put yet)
+        box_selection = np.append(box_selection, [sol.get_empty_box_ids()[0]])
+
+        return box_selection
+
     def put_all_rects(self, sol: RectanglePackingSolutionRuleBased):
         sol.reset()
         for rect_idx in sol.rect_order:
-            selected_box_ids = np.arange(self.num_rects)  # TODO: reduce selection
-            for rotate in [False, True]:  # TODO
+            box_selection = self.select_boxes_to_place(sol, rect_idx)
+            place_options = []
+            for rotate in [False, True]:
                 rect_size = self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1]
-                place_locations = self.place(rect_size=rect_size,
-                                             boxes_grid=sol.boxes_grid,
-                                             selected_box_ids=selected_box_ids,
-                                             box_coords=sol.box_coords)
-            target_pos = place_locations[0]
-            sol.put_rect(rect_idx, target_pos=target_pos, rotated=rotate, update_ids=True)
+                place_locations, place_b = self.place(rect_size=rect_size,
+                                                      boxes_grid=sol.boxes_grid,
+                                                      selected_box_ids=box_selection,
+                                                      box_coords=sol.box_coords)
+                place_options += [(place_locations[0], place_b[0])]  # There always exists at least one placement
+            choose_rotated = place_options[0][1] > place_options[1][1]
+            target_pos = place_options[1][0] if choose_rotated else place_options[0][0]
+            sol.put_rect(rect_idx, target_pos=target_pos, rotated=choose_rotated, update_ids=True)
         sol.placed = True
 
     def heuristic(self, sol: RectanglePackingSolutionRuleBased):
@@ -358,10 +391,10 @@ class RectanglePackingProblemGreedyLargestFirstStrategy(RectanglePackingProblem,
                 size = size[::-1]
 
             # Identify all locations which are allowed for placement
-            relevant_locs = self.place(rect_size=size,
-                                       boxes_grid=solution.boxes_grid,
-                                       selected_box_ids=selected_box_ids,
-                                       box_coords=solution.box_coords)
+            relevant_locs, _ = self.place(rect_size=size,
+                                          boxes_grid=solution.boxes_grid,
+                                          selected_box_ids=selected_box_ids,
+                                          box_coords=solution.box_coords)
 
             # TODO: Think about this part:
             # Prune abundant options
@@ -441,10 +474,10 @@ class RectanglePackingProblemGreedySmallestFirstStrategy(RectanglePackingProblem
                 size = size[::-1]
 
             # Identify all locations which are allowed for placement
-            relevant_locs = self.place(rect_size=size,
-                                       boxes_grid=solution.boxes_grid,
-                                       selected_box_ids=selected_box_ids,
-                                       box_coords=solution.box_coords)
+            relevant_locs, _ = self.place(rect_size=size,
+                                          boxes_grid=solution.boxes_grid,
+                                          selected_box_ids=selected_box_ids,
+                                          box_coords=solution.box_coords)
 
             # TODO: Think about this part:
             # Prune abundant options
