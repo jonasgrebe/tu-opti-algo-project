@@ -14,8 +14,7 @@ from problems.rectangle_packing.problem import (
     RectanglePackingProblemRuleBased,
     RectanglePackingSolutionGeometryBased,
     RectanglePackingProblemGreedyLargestFirstStrategy,
-    RectanglePackingProblemGreedySmallestFirstStrategy,
-    RectanglePackingSolutionGreedy
+    RectanglePackingProblemGreedySmallestFirstStrategy
 )
 
 ZOOM_STEP_FACTOR = 1.1
@@ -100,216 +99,231 @@ class RectanglePackingGUI(BaseGUI):
         self.search_stop_time = time.time()
         self.is_searching = False
 
-        btn_search = self.menu.get_widget('run_search')
+        btn_search = self.main_menu.get_widget('run_search')
         btn_search.set_title('Run Search')
 
-        btn_configure = self.menu.get_widget('configure_problem')
+        btn_configure = self.main_menu.get_widget('configure_problem')
         btn_configure.readonly = False
 
     def __setup_menu(self):
 
         def button_onmouseover(w) -> None:
-            w.set_background_color((100, 100, 100))
+            w.set_background_color(self.colors['button_bg_hover'])
 
         def button_onmouseleave(w) -> None:
-            w.set_background_color((0, 0, 0))
+            w.set_background_color(self.colors['button_bg'])
+
+        def dropselect_onmouseover(w) -> None:
+            w._selection_box_bgcolor = self.colors['button_bg_hover']
+            w._force_render()
+
+        def dropselect_onmouseleave(w) -> None:
+            w._selection_box_bgcolor = self.colors['button_bg']
+            w._force_render()
 
         theme = pygame_menu.Theme(
             background_color=pygame_menu.themes.TRANSPARENT_COLOR,
             title=False,
             widget_font=pygame_menu.font.FONT_FIRACODE,
-            widget_font_color=(255, 255, 255),
-            widget_margin=(0, 15),
-            widget_alignment=pygame_menu.locals.ALIGN_RIGHT,
-            widget_selection_effect=pygame_menu.widgets.NoneSelection()
+            widget_font_size=20,
+            widget_font_color=self.colors['font'],
+            widget_alignment=pygame_menu.locals.ALIGN_LEFT,
+            widget_selection_effect=pygame_menu.widgets.NoneSelection(),
+            widget_background_color=self.colors['button_bg']
         )
-        self.menu = pygame_menu.Menu(
+        self.main_menu = pygame_menu.Menu(
             width=self.screen.get_width(),
             height=self.screen.get_height(),
             mouse_motion_selection=True,
             theme=theme,
-            columns=1,
-            rows=10,
             title='',
         )
 
-        self.mini_menu = pygame_menu.Menu(
+        # Problem Config Menu
+
+        self.problem_config_menu = pygame_menu.Menu(
             width=self.screen.get_width(),
             height=self.screen.get_height(),
             mouse_motion_selection=True,
             theme=theme,
-            title='Problem Configuration',
+            title='Problem Configuration'
         )
 
+        self.problem_config_frame = self.problem_config_menu.add.frame_v(width=320, height=500,
+                                                                         padding=(15, 15),
+                                                                         background_color=self.colors["menu_bg"],
+                                                                         align=pygame_menu.locals.ALIGN_RIGHT)
+        self.problem_config_frame._relax = True
+
         def rangeslider_box_length_onchange(s, *args) -> None:
-            rangeslider_box_length = self.mini_menu.get_widget('rangeslider_box_length')
+            rangeslider_box_length = self.problem_config_menu.get_widget('rangeslider_box_length')
             box_length = int(rangeslider_box_length.get_value())
             self.__update_problem_config({'box_length': box_length})
 
-        rangeslider_box_length = self.mini_menu.add.range_slider(
+        rangeslider_box_length = self.problem_config_menu.add.range_slider(
             'L',
             rangeslider_id='rangeslider_box_length',
             default=self.problem_config['box_length'],
             range_values=(3, 32),
             increment=1,
             onchange=rangeslider_box_length_onchange,
-            font_size=20,
-            shadow_width=10,
-            background_color=(0, 0, 0)
+            shadow_width=10
         )
+        self.problem_config_frame.pack(rangeslider_box_length)
 
         def rangeslider_num_rects_onchange(s, *args) -> None:
-            rangeslider_num_rects = self.mini_menu.get_widget('rangeslider_num_rects')
+            rangeslider_num_rects = self.problem_config_menu.get_widget('rangeslider_num_rects')
             num_rects = int(rangeslider_num_rects.get_value())
             self.__update_problem_config({'num_rects': num_rects})
 
-        rangeslider_num_rects = self.mini_menu.add.range_slider(
+        rangeslider_num_rects = self.problem_config_menu.add.range_slider(
             '# rects',
             rangeslider_id='rangeslider_num_rects',
             default=self.problem_config['num_rects'],
             range_values=(1, 1000),
             increment=1,
             onchange=rangeslider_num_rects_onchange,
-            font_size=20,
-            shadow_width=10,
-            background_color=(0, 0, 0)
+            shadow_width=10
         )
-
-        self.mini_menu.add.vertical_margin(40)
+        self.problem_config_frame.pack(rangeslider_num_rects, margin=(0, 15))
 
         def rangeslider_w_min_onchange(s, *args) -> None:
-            rangeslider_w_min = self.mini_menu.get_widget('rangeslider_w_min')
+            rangeslider_w_min = self.problem_config_menu.get_widget('rangeslider_w_min')
             w_min = int(rangeslider_w_min.get_value())
             self.__update_problem_config({'w_min': w_min})
 
-        rangeslider_w_min = self.mini_menu.add.range_slider(
+        rangeslider_w_min = self.problem_config_menu.add.range_slider(
             'w_min',
             rangeslider_id='rangeslider_w_min',
             default=self.problem_config['w_min'],
             range_values=(1, self.problem_config['w_max']),
             increment=1,
             onchange=rangeslider_w_min_onchange,
-            font_size=20,
-            shadow_width=10,
-            background_color=(0, 0, 0)
+            shadow_width=10
         )
+        self.problem_config_frame.pack(rangeslider_w_min, margin=(0, 35))
 
         def rangeslider_w_max_onchange(s, *args) -> None:
-            rangeslider_w_max = self.mini_menu.get_widget('rangeslider_w_max')
+            rangeslider_w_max = self.problem_config_menu.get_widget('rangeslider_w_max')
             w_max = int(rangeslider_w_max.get_value())
             self.__update_problem_config({'w_max': w_max})
 
-        rangeslider_w_max = self.mini_menu.add.range_slider(
+        rangeslider_w_max = self.problem_config_menu.add.range_slider(
             'w_max',
             rangeslider_id='rangeslider_w_max',
             default=self.problem_config['w_max'],
             range_values=(self.problem_config['w_min'] + 1, self.problem_config['box_length']),
             increment=1,
             onchange=rangeslider_w_max_onchange,
-            font_size=20,
-            shadow_width=10,
-            background_color=(0, 0, 0)
+            shadow_width=10
         )
+        self.problem_config_frame.pack(rangeslider_w_max, margin=(0, 15))
 
         def rangeslider_h_min_onchange(s, *args) -> None:
-            rangeslider_h_min = self.mini_menu.get_widget('rangeslider_h_min')
+            rangeslider_h_min = self.problem_config_menu.get_widget('rangeslider_h_min')
             h_min = int(rangeslider_h_min.get_value())
             self.__update_problem_config({'h_min': h_min})
 
-        self.mini_menu.add.vertical_margin(20)
-
-        rangeslider_h_min = self.mini_menu.add.range_slider(
+        rangeslider_h_min = self.problem_config_menu.add.range_slider(
             'h_min',
             rangeslider_id='rangeslider_h_min',
             default=self.problem_config['h_min'],
             range_values=(1, self.problem_config['h_max']),
             increment=1,
             onchange=rangeslider_h_min_onchange,
-            font_size=20,
-            shadow_width=10,
-            background_color=(0, 0, 0)
+            shadow_width=10
         )
+        self.problem_config_frame.pack(rangeslider_h_min, margin=(0, 35))
 
         def rangeslider_h_max_onchange(s, *args) -> None:
-            rangeslider_w_max = self.mini_menu.get_widget('rangeslider_h_max')
+            rangeslider_w_max = self.problem_config_menu.get_widget('rangeslider_h_max')
             h_max = int(rangeslider_h_max.get_value())
             self.__update_problem_config({'h_max': h_max})
 
-        rangeslider_h_max = self.mini_menu.add.range_slider(
+        rangeslider_h_max = self.problem_config_menu.add.range_slider(
             'h_max',
             rangeslider_id='rangeslider_h_max',
             default=self.problem_config['h_max'],
             range_values=(self.problem_config['h_min'] + 1, self.problem_config['box_length']),
             increment=1,
             onchange=rangeslider_h_max_onchange,
-            font_size=20,
-            shadow_width=10,
-            background_color=(0, 0, 0)
+            shadow_width=10
         )
+        self.problem_config_frame.pack(rangeslider_h_max, margin=(0, 15))
 
-        self.mini_menu.add.vertical_margin(40)
-
-        btn_close_mini_menu = self.mini_menu.add.button(
-            'Save and Return',
-            pygame_menu.events.BACK,
+        btn_close_config_menu = self.problem_config_menu.add.button(
+            title='Apply',
+            action=pygame_menu.events.BACK,
             button_id='close_mini_menu',
-            font_size=20,
-            shadow_width=10,
-            background_color=(0, 0, 0)
+            shadow_width=10
         )
-        btn_close_mini_menu.set_onmouseover(lambda: button_onmouseover(btn_close_mini_menu))
-        btn_close_mini_menu.set_onmouseleave(lambda: button_onmouseleave(btn_close_mini_menu))
+        btn_close_config_menu.set_onmouseover(lambda: button_onmouseover(btn_close_config_menu))
+        btn_close_config_menu.set_onmouseleave(lambda: button_onmouseleave(btn_close_config_menu))
+        self.problem_config_frame.pack(btn_close_config_menu, margin=(0, 35))
 
-        btn_configure = self.menu.add.button(
-            'Configure Problem',
-            self.mini_menu,
+        # Main Menu:
+
+        self.main_frame = self.main_menu.add.frame_v(width=270, height=550,
+                                                     padding=(15, 15),
+                                                     background_color=self.colors["menu_bg"],
+                                                     align=pygame_menu.locals.ALIGN_RIGHT)
+        self.main_frame._relax = True
+
+        btn_configure = self.main_menu.add.button(
+            title='Configure Problem',
+            action=self.problem_config_menu,
             button_id='configure_problem',
-            font_size=20,
-            shadow_width=10,
-            background_color=(0, 0, 0)
+            shadow_width=10
         )
         btn_configure.set_onmouseover(lambda: button_onmouseover(btn_configure))
         btn_configure.set_onmouseleave(lambda: button_onmouseleave(btn_configure))
+        self.main_frame.pack(btn_configure, margin=(0, 15))
 
         def generate_instance():
             self.stop_search()  # IMPORTANT!
             self.__setup_new_problem()
 
-        btn_generate = self.menu.add.button(
+        btn_generate = self.main_menu.add.button(
             'Generate Instance',
             generate_instance,
             button_id='generate_instance',
-            font_size=20,
-            shadow_width=10,
-            background_color=(0, 0, 0)
+            shadow_width=10
         )
         btn_generate.set_onmouseover(lambda: button_onmouseover(btn_generate))
         btn_generate.set_onmouseleave(lambda: button_onmouseleave(btn_generate))
+        self.main_frame.pack(btn_generate, margin=(0, 15))
 
-        self.menu.add.vertical_margin(100)
+        self.main_frame.pack(self.main_menu.add.label("Algorithm",
+                                                      background_color=pygame_menu.themes.TRANSPARENT_COLOR),
+                             margin=(0, 40))
 
         def dropselect_algorithm_onchange(s, *args) -> None:
             self.stop_search()
 
-            btn_search = self.menu.get_widget('run_search')
+            btn_search = self.main_menu.get_widget('run_search')
             self.search_algorithm_name = args[0]
             self.search = self.search_algorithms[self.search_algorithm_name]
 
+            dropselect_neighborhood = self.main_menu.get_widget('neighborhood')
+            dropselect_neighborhood_label = self.main_menu.get_widget('neighborhood_label')
+            dropselect_selection_strategy = self.main_menu.get_widget('selection_strategy')
+            dropselect_selection_strategy_label = self.main_menu.get_widget('selection_strategy_label')
+
             if self.search_algorithm_name == 'local_search':
-                dropselect_neighborhood = self.menu.get_widget('neighborhood')
-                dropselect_selection_strategy = self.menu.get_widget('selection_strategy')
                 self.problem_type_name = dropselect_neighborhood.get_value()[0][1]
 
                 dropselect_neighborhood.show()
+                dropselect_neighborhood_label.show()
                 dropselect_selection_strategy.hide()
+                dropselect_selection_strategy_label.hide()
 
             elif self.search_algorithm_name == 'greedy_search':
-                dropselect_neighborhood = self.menu.get_widget('neighborhood')
-                dropselect_selection_strategy = self.menu.get_widget('selection_strategy')
                 self.problem_type_name = dropselect_selection_strategy.get_value()[0][1]
 
                 dropselect_neighborhood.hide()
+                dropselect_neighborhood_label.hide()
                 dropselect_selection_strategy.show()
+                dropselect_selection_strategy_label.show()
 
             self.__setup_new_problem()
 
@@ -317,108 +331,120 @@ class RectanglePackingGUI(BaseGUI):
             btn_search.is_selectable = True
             btn_search.set_cursor(pygame_menu.locals.CURSOR_HAND)
 
-        dropselect_algorithm = self.menu.add.dropselect(
-            title='Algorithm',
+        dropselect_algorithm = self.main_menu.add.dropselect(
+            title='',
             items=[
                 ('Local Search', 'local_search'),
                 ('Greedy Search', 'greedy_search'),
             ],
             dropselect_id='algorithm',
-            font_size=20,
             onchange=dropselect_algorithm_onchange,
-            padding=10,
             default=0,
-            placeholder='Select one',
+            padding=0,
+            placeholder='Select',
             selection_box_height=5,
-            selection_box_inflate=(0, 10),
-            selection_box_margin=5,
-            selection_box_text_margin=10,
-            selection_box_width=200,
-            selection_option_font_size=20,
-            background_color=(0, 0, 0),
+            selection_box_width=220,
+            selection_box_inflate=(5, 15),
+            selection_box_margin=0,
+            selection_box_border_color=self.colors['button_bg'],
+            selection_option_font_color=self.colors['font'],
+            selection_box_bgcolor=self.colors['button_bg'],
+            shadow_width=10
         )
-        dropselect_algorithm.set_onmouseover(lambda: button_onmouseover(dropselect_algorithm))
-        dropselect_algorithm.set_onmouseleave(lambda: button_onmouseleave(dropselect_algorithm))
+        dropselect_algorithm.set_onmouseover(lambda: dropselect_onmouseover(dropselect_algorithm))
+        dropselect_algorithm.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_algorithm))
+        self.main_frame.pack(dropselect_algorithm, margin=(15, 0))
+
+        self.main_frame.pack(self.main_menu.add.label("Neighborhood", label_id="neighborhood_label",
+                                                      background_color=pygame_menu.themes.TRANSPARENT_COLOR),
+                             margin=(0, 15))
 
         def dropselect_neighborhood_onchange(s, *args) -> None:
             self.stop_search()
             self.problem_type_name = args[0]
             self.__setup_new_problem()
 
-        dropselect_neighborhood = self.menu.add.dropselect(
-            title='Neigborhood',
+        dropselect_neighborhood = self.main_menu.add.dropselect(
+            title='',
             items=[
                 ('Geometry-based', 'rectangle_packing_geometry_based'),
                 ('Rule-based', 'rectangle_packing_rule_based'),
             ],
             dropselect_id='neighborhood',
-            font_size=20,
             onchange=dropselect_neighborhood_onchange,
-            padding=10,
             default=0,
-            placeholder='Select one',
+            padding=0,
+            placeholder='Select',
             selection_box_height=5,
-            selection_box_inflate=(0, 10),
-            selection_box_margin=5,
-            selection_box_text_margin=10,
-            selection_box_width=200,
-            selection_option_font_size=20,
-            background_color=(0, 0, 0),
+            selection_box_width=220,
+            selection_box_inflate=(5, 15),
+            selection_box_margin=0,
+            selection_box_border_color=self.colors['button_bg'],
+            selection_option_font_color=self.colors['font'],
+            selection_box_bgcolor=self.colors['button_bg'],
+            shadow_width=10
         )
-        dropselect_neighborhood.set_onmouseover(lambda: button_onmouseover(dropselect_neighborhood))
-        dropselect_neighborhood.set_onmouseleave(lambda: button_onmouseleave(dropselect_neighborhood))
+        dropselect_neighborhood.set_onmouseover(lambda: dropselect_onmouseover(dropselect_neighborhood))
+        dropselect_neighborhood.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_neighborhood))
+        self.main_frame.pack(dropselect_neighborhood, margin=(15, 0))
+
+        label = self.main_menu.add.label("Strategy",
+                                         label_id="selection_strategy_label",
+                                         background_color=pygame_menu.themes.TRANSPARENT_COLOR)
+        label.hide()
+        self.main_frame.pack(label, margin=(0, 15))
 
         def dropselect_selection_strategy_onchange(s, *args) -> None:
             self.stop_search()
 
-            dropselect_selection_strategy = self.menu.get_widget('selection_strategy')
+            dropselect_selection_strategy = self.main_menu.get_widget('selection_strategy')
             self.problem_type_name = args[0]
             self.__setup_new_problem()
 
-        dropselect_selection_strategy = self.menu.add.dropselect(
-            title='Strategy',
+        dropselect_selection_strategy = self.main_menu.add.dropselect(
+            title='',
             items=[
                 ('Largest First', 'rectangle_packing_greedy_largest_first'),
                 ('Smallest First', 'rectangle_packing_greedy_smallest_first'),
             ],
             dropselect_id='selection_strategy',
-            font_size=20,
             onchange=dropselect_selection_strategy_onchange,
-            padding=10,
             default=0,
-            placeholder='Select one',
+            padding=0,
+            placeholder='Select',
             selection_box_height=5,
-            selection_box_inflate=(0, 10),
-            selection_box_margin=5,
-            selection_box_text_margin=10,
-            selection_box_width=200,
-            selection_option_font_size=20,
-            background_color=(0, 0, 0),
+            selection_box_width=220,
+            selection_box_inflate=(5, 15),
+            selection_box_margin=0,
+            selection_box_border_color=self.colors['button_bg'],
+            selection_option_font_color=self.colors['font'],
+            selection_box_bgcolor=self.colors['button_bg'],
+            shadow_width=10
         )
-        dropselect_selection_strategy.set_onmouseover(lambda: button_onmouseover(dropselect_selection_strategy))
-        dropselect_selection_strategy.set_onmouseleave(lambda: button_onmouseleave(dropselect_selection_strategy))
+        dropselect_selection_strategy.set_onmouseover(lambda: dropselect_onmouseover(dropselect_selection_strategy))
+        dropselect_selection_strategy.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_selection_strategy))
         dropselect_selection_strategy.hide()
+        self.main_frame.pack(dropselect_selection_strategy, margin=(15, 0))
 
         def run_search():
-            btn_search = self.menu.get_widget('run_search')
+            btn_search = self.main_menu.get_widget('run_search')
             if not self.is_searching:
                 self.__start_search()
             else:
                 self.is_paused = True
                 self.stop_search()
 
-        btn_search = self.menu.add.button(
+        btn_search = self.main_menu.add.button(
             'Run Search',
             run_search,
             button_id='run_search',
-            font_size=20,
-            shadow_width=10,
-            background_color=(0, 0, 0)
+            shadow_width=10
         )
 
         # btn_search.readonly = True
         btn_search.set_onmouseover(lambda: button_onmouseover(btn_search))
         btn_search.set_onmouseleave(lambda: button_onmouseleave(btn_search))
+        self.main_frame.pack(btn_search, margin=(0, 40))
 
         def reset_search():
             # btn_reset = self.menu.get_widget('reset_search')
@@ -432,31 +458,40 @@ class RectanglePackingGUI(BaseGUI):
 
             self.set_current_solution(copy.deepcopy(self.init_sol))
 
-        btn_reset = self.menu.add.button(
+        btn_reset = self.main_menu.add.button(
             'Reset Search',
             reset_search,
             button_id='reset_search',
-            font_size=20,
-            shadow_width=10,
-            background_color=(0, 0, 0)
+            shadow_width=10
         )
         btn_reset.set_onmouseover(lambda: button_onmouseover(btn_reset))
         btn_reset.set_onmouseleave(lambda: button_onmouseleave(btn_reset))
+        self.main_frame.pack(btn_reset, margin=(0, 15))
 
-        btn_exit = self.menu.add.button(
+        btn_exit = self.main_menu.add.button(
             'Exit',
             pygame_menu.events.EXIT,
             button_id='exit',
-            font_size=20,
-            shadow_width=10,
-            background_color=(0, 0, 0),
-
+            shadow_width=10
         )
         btn_exit.set_onmouseover(lambda: button_onmouseover(btn_exit))
         btn_exit.set_onmouseleave(lambda: button_onmouseleave(btn_exit))
+        self.main_frame.pack(btn_exit, margin=(0, 40))
+
+    def __mouse_over_menu(self):
+        x, y, w, h = self.__get_menu_bounds()
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        return x <= mouse_x < x + w and y <= mouse_y < y + h
+
+    def __get_menu_bounds(self):
+        current_menu = self.main_menu.get_current()
+        displayed_frame = self.main_frame if current_menu == self.main_menu else self.problem_config_frame
+        x, y = displayed_frame.get_position(apply_padding=True)
+        w = displayed_frame.get_width()
+        h = displayed_frame.get_height()
+        return x, y, w, h
 
     def __render_rectangle_preview(self):
-
         if self.search_algorithm_name != 'greedy_search':
             return
 
@@ -504,16 +539,17 @@ class RectanglePackingGUI(BaseGUI):
         else:
             self.search_start_time = time.time()
 
-        btn_search = self.menu.get_widget('run_search')
+        btn_search = self.main_menu.get_widget('run_search')
         btn_search.set_title('Pause Search')
 
-        btn_configure = self.menu.get_widget('configure_problem')
+        btn_configure = self.main_menu.get_widget('configure_problem')
         btn_configure.readonly = True
 
     def __setup_new_problem(self):
         self.problem = self.problem_types[self.problem_type_name](**self.problem_config)
 
-        if isinstance(self.problem, (RectanglePackingProblemGreedyLargestFirstStrategy, RectanglePackingProblemGreedySmallestFirstStrategy)):
+        if isinstance(self.problem, (
+                RectanglePackingProblemGreedyLargestFirstStrategy, RectanglePackingProblemGreedySmallestFirstStrategy)):
             sol = self.problem.get_empty_solution()
         else:
             sol = self.problem.get_arbitrary_solution()
@@ -540,12 +576,12 @@ class RectanglePackingGUI(BaseGUI):
         problem_config['h_min'] = min(problem_config['h_max'], problem_config['h_min'])
 
         # get all the widgets and update their values
-        rangeslider_box_length = self.mini_menu.get_widget('rangeslider_box_length')
-        rangeslider_num_rects = self.mini_menu.get_widget('rangeslider_num_rects')
-        rangeslider_w_min = self.mini_menu.get_widget('rangeslider_w_min')
-        rangeslider_w_max = self.mini_menu.get_widget('rangeslider_w_max')
-        rangeslider_h_min = self.mini_menu.get_widget('rangeslider_h_min')
-        rangeslider_h_max = self.mini_menu.get_widget('rangeslider_h_max')
+        rangeslider_box_length = self.problem_config_menu.get_widget('rangeslider_box_length')
+        rangeslider_num_rects = self.problem_config_menu.get_widget('rangeslider_num_rects')
+        rangeslider_w_min = self.problem_config_menu.get_widget('rangeslider_w_min')
+        rangeslider_w_max = self.problem_config_menu.get_widget('rangeslider_w_max')
+        rangeslider_h_min = self.problem_config_menu.get_widget('rangeslider_h_min')
+        rangeslider_h_max = self.problem_config_menu.get_widget('rangeslider_h_max')
 
         rangeslider_box_length.set_value(L)
         rangeslider_num_rects.set_value(N)
@@ -571,8 +607,8 @@ class RectanglePackingGUI(BaseGUI):
         self.area_width = self.screen.get_width()
         self.area_height = self.screen.get_height()
 
-        self.menu.resize(w, h, position=(1, 1, False))
-        self.mini_menu.resize(w, h, position=(1, 1, False))
+        self.main_menu.resize(w, h, position=(1, 1, False))
+        self.problem_config_menu.resize(w, h, position=(1, 1, False))
 
     def set_current_solution(self, solution: RectanglePackingSolution):
         self.current_sol = solution
@@ -658,22 +694,24 @@ class RectanglePackingGUI(BaseGUI):
 
         rect_idx = self.get_rect_idx_at(x, y)
 
-        if rect_idx is not None:
+        if rect_idx is not None and not self.__mouse_over_menu():
             pygame.mouse.set_cursor(*pygame.cursors.broken_x)
         else:
             pygame.mouse.set_cursor(*pygame.cursors.arrow)
 
         events = pygame.event.get()
-        if self.menu.is_enabled():
-            self.menu.update(events)
+        if self.main_menu.is_enabled():
+            self.main_menu.update(events)
 
         for event in events:
-
             # Did the user click the window close button?
             if event.type == pygame.QUIT:
                 self.running = False
 
             if event.type == pygame.MOUSEBUTTONDOWN:
+                if self.__mouse_over_menu():
+                    continue
+
                 if event.button == 2:  # center mousebutton
                     self.dragging_camera = True
                     self.old_mouse_pos = mouse_pos
@@ -787,8 +825,8 @@ class RectanglePackingGUI(BaseGUI):
         times[5] = time.time() - t
         t = time.time()
 
-        if self.menu.is_enabled():
-            self.menu.draw(self.screen)
+        if self.main_menu.is_enabled():
+            self.main_menu.draw(self.screen)
 
         times[6] = time.time() - t
         t_total = np.sum(times)
@@ -896,26 +934,27 @@ class RectanglePackingGUI(BaseGUI):
         pygame.draw.lines(self.screen, color, False, point_list, self.config['line_width'])
 
     def draw_hover_shape(self):
-        mouse_pos = np.asarray(pygame.mouse.get_pos())
-        x, y = self.mouse_pos_to_field_coords(mouse_pos)
-        rect_under_mouse = self.get_rect_idx_at(x, y)
+        if not self.__mouse_over_menu():
+            mouse_pos = np.asarray(pygame.mouse.get_pos())
+            x, y = self.mouse_pos_to_field_coords(mouse_pos)
+            rect_under_mouse = self.get_rect_idx_at(x, y)
 
-        if self.selected_rect_idx is not None:
-            _, _, w, h = self.get_rect_info(self.selected_rect_idx)
-            if self.selection_rotated:
-                w, h = h, w
-        elif rect_under_mouse is not None:
-            x, y, w, h = self.get_rect_info(rect_under_mouse)
-        else:
-            w, h = 1, 1
+            if self.selected_rect_idx is not None:
+                _, _, w, h = self.get_rect_info(self.selected_rect_idx)
+                if self.selection_rotated:
+                    w, h = h, w
+            elif rect_under_mouse is not None:
+                x, y, w, h = self.get_rect_info(rect_under_mouse)
+            else:
+                w, h = 1, 1
 
-        x_p, y_p, w_p, h_p = self.coords2pixels(x, y, w, h)
+            x_p, y_p, w_p, h_p = self.coords2pixels(x, y, w, h)
 
-        hover_surface = pygame.Surface((w_p, h_p))
-        hover_surface.set_alpha(60)
-        hover_surface.set_colorkey((0, 0, 0))
-        pygame.draw.rect(hover_surface, self.colors['hover'], [0, 0, w_p, h_p])
-        self.screen.blit(hover_surface, (x_p, y_p))
+            hover_surface = pygame.Surface((w_p, h_p))
+            hover_surface.set_alpha(60)
+            hover_surface.set_colorkey((0, 0, 0))
+            pygame.draw.rect(hover_surface, self.colors['hover'], [0, 0, w_p, h_p])
+            self.screen.blit(hover_surface, (x_p, y_p))
 
     def draw_text_info(self):
         # Display current solution value
