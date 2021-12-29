@@ -192,7 +192,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         """Returns all valid placing coordinates for all rectangles."""
         ordered_by_occupancy = solution.box_occupancies.argsort()[::-1]
 
-        # ---- Determine a good rect selection order ----
+        # ---- Preprocessing: Determine a good rect selection order ----
         rect_ids = self.get_good_rect_selection_order(solution.box_occupancies, solution.box2rects)
 
         # ---- Check placements using sliding window approach ----
@@ -298,15 +298,14 @@ class RectanglePackingProblemGreedyLargestFirstStrategy(RectanglePackingProblem,
     def __init__(self, *args, **kwargs):
         super(RectanglePackingProblemGreedyLargestFirstStrategy, self).__init__(*args, **kwargs)
 
-
     def objective_function(self, sol: RectanglePackingSolutionRuleBased):
-        #if not sol.placed:
+        # if not sol.placed:
         #    self.put_all_rects(sol)
 
         return np.sum(sol.box_rect_cnts > 0)
 
     def heuristic(self, sol: RectanglePackingSolutionRuleBased):
-        #if not sol.placed:
+        # if not sol.placed:
         #    self.put_all_rects(sol)
 
         box_occupancies = sol.box_occupancies
@@ -320,16 +319,13 @@ class RectanglePackingProblemGreedyLargestFirstStrategy(RectanglePackingProblem,
                and np.all(sol.rect_order >= 0) \
                and np.all(sol.rect_order < self.num_rects)
 
-
     def get_empty_solution(self):
         solution = RectanglePackingSolutionGreedy(self)
         solution.reset()
         return solution
 
-
     def get_expansion(self, solution: RectanglePackingSolutionGreedy):
         return list(itertools.chain(*list(self.get_next_expansions(solution))))
-
 
     def get_next_expansions(self, solution: RectanglePackingSolutionGreedy):
         """Returns expansion (partial solutions obtained by appending an element) of the given (partial) solution."""
@@ -385,15 +381,14 @@ class RectanglePackingProblemGreedySmallestFirstStrategy(RectanglePackingProblem
     def __init__(self, *args, **kwargs):
         super(RectanglePackingProblemGreedySmallestFirstStrategy, self).__init__(*args, **kwargs)
 
-
     def objective_function(self, sol: RectanglePackingSolutionRuleBased):
-        #if not sol.placed:
+        # if not sol.placed:
         #    self.put_all_rects(sol)
 
         return np.sum(sol.box_rect_cnts > 0)
 
     def heuristic(self, sol: RectanglePackingSolutionRuleBased):
-        #if not sol.placed:
+        # if not sol.placed:
         #    self.put_all_rects(sol)
 
         box_occupancies = sol.box_occupancies
@@ -407,16 +402,13 @@ class RectanglePackingProblemGreedySmallestFirstStrategy(RectanglePackingProblem
                and np.all(sol.rect_order >= 0) \
                and np.all(sol.rect_order < self.num_rects)
 
-
     def get_empty_solution(self):
         solution = RectanglePackingSolutionGreedy(self)
         solution.reset()
         return solution
 
-
     def get_expansion(self, solution: RectanglePackingSolutionGreedy):
         return list(itertools.chain(*list(self.get_next_expansions(solution))))
-
 
     def get_next_expansions(self, solution: RectanglePackingSolutionGreedy):
         """Returns expansion (partial solutions obtained by appending an element) of the given (partial) solution."""
