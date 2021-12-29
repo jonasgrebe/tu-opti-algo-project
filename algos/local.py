@@ -8,11 +8,11 @@ import time
 MINIMUM_IMPROVEMENT = 0.01
 
 
-def local_search(init_solution, problem: NeighborhoodProblem, gui: BaseGUI = None):
+def local_search(problem: NeighborhoodProblem, gui: BaseGUI = None):
     t = time.time()
 
     # Step 1: Start with an arbitrary feasible solution
-    current_solution = init_solution
+    current_solution = gui.get_current_solution() if gui is not None else problem.get_arbitrary_solution()
 
     # Step 2: While there is a better solution nearby, go to that solution
     step = 0

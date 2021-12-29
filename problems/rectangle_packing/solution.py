@@ -251,3 +251,51 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
         duplicate.boxes_grid = self.boxes_grid.copy()
 
         return duplicate
+
+
+
+class RectanglePackingSolutionGreedy(RectanglePackingSolution):
+
+    def __init__(self, problem):
+        super(RectanglePackingSolutionGreedy, self).__init__(problem)
+
+
+    def reset(self):
+        self.locations = np.zeros((self.problem.num_rects, 2), dtype=np.int)
+        self.rotations = np.zeros(self.problem.num_rects, dtype=np.bool)
+        self.is_put = np.zeros(self.problem.num_rects, dtype=np.bool)
+
+        self.box_coords = np.zeros((self.problem.num_rects, 2), dtype=np.int)
+        num_cols = int(np.ceil(np.sqrt(self.problem.num_rects)))
+        self.box_coords[:, 0] = np.arange(self.problem.num_rects) % num_cols
+        self.box_coords[:, 1] = np.arange(self.problem.num_rects) // num_cols
+        self.box_ids = {tuple(box): idx for idx, box in enumerate(self.box_coords)}
+
+        self.box_occupancies = np.zeros(self.problem.num_rects, dtype=np.int)
+        self.box_rect_cnts = np.zeros(self.problem.num_rects, dtype=np.int)
+        self.box2rects = {idx: [] for idx in range(self.problem.num_rects)}
+
+        self.boxes_grid = np.zeros((self.problem.num_rects,
+                                    self.problem.box_length,
+                                    self.problem.box_length), dtype=np.int)
+
+    def is_complete(self):
+        return np.all(self.is_put)
+
+    def get_remaining_elements(self):
+        return np.where(~self.is_put)[0]
+
+    def copy(self):
+        duplicate = RectanglePackingSolutionGreedy(self.problem)
+
+        duplicate.locations = self.locations.copy()
+        duplicate.rotations = self.rotations.copy()
+        duplicate.is_put = self.is_put.copy()
+        duplicate.box_ids = self.box_ids.copy()
+        duplicate.box_coords = self.box_coords.copy()
+        duplicate.box_occupancies = self.box_occupancies.copy()
+        duplicate.box_rect_cnts = self.box_rect_cnts.copy()
+        duplicate.box2rects = copy.deepcopy(self.box2rects)
+        duplicate.boxes_grid = self.boxes_grid.copy()
+
+        return duplicate

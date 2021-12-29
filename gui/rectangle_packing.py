@@ -8,8 +8,15 @@ import copy
 
 from algos import local_search, greedy_search
 from gui import BaseGUI
-from problems.rectangle_packing.problem import RectanglePackingProblemGeometryBased, RectanglePackingSolution, \
-    RectanglePackingProblemRuleBased, RectanglePackingSolutionGeometryBased
+from problems.rectangle_packing.problem import (
+    RectanglePackingProblemGeometryBased,
+    RectanglePackingSolution,
+    RectanglePackingProblemRuleBased,
+    RectanglePackingSolutionGeometryBased,
+    RectanglePackingProblemGreedyLargestFirstStrategy,
+    RectanglePackingProblemGreedySmallestFirstStrategy,
+    RectanglePackingSolutionGreedy
+)
 
 ZOOM_STEP_FACTOR = 1.1
 ANIM_SPEED = 0.5  # sec
@@ -26,8 +33,8 @@ class RectanglePackingGUI(BaseGUI):
         self.problem_types = {
             'rectangle_packing_geometry_based': RectanglePackingProblemGeometryBased,
             'rectangle_packing_rule_based': RectanglePackingProblemRuleBased,
-            # 'rectangle_packing_strategy_1': None,
-            # 'rectangle_packing_strategy_2': None
+            'rectangle_packing_greedy_largest_first': RectanglePackingProblemGreedyLargestFirstStrategy,
+            'rectangle_packing_greedy_smallest_first': RectanglePackingProblemGreedySmallestFirstStrategy
         }
         self.init_sol = None
 
@@ -291,14 +298,20 @@ class RectanglePackingGUI(BaseGUI):
             if self.search_algorithm_name == 'local_search':
                 dropselect_neighborhood = self.menu.get_widget('neighborhood')
                 dropselect_selection_strategy = self.menu.get_widget('selection_strategy')
+                self.problem_type_name = dropselect_neighborhood.get_value()[0][1]
+
                 dropselect_neighborhood.show()
                 dropselect_selection_strategy.hide()
 
             elif self.search_algorithm_name == 'greedy_search':
                 dropselect_neighborhood = self.menu.get_widget('neighborhood')
                 dropselect_selection_strategy = self.menu.get_widget('selection_strategy')
+                self.problem_type_name = dropselect_selection_strategy.get_value()[0][1]
+
                 dropselect_neighborhood.hide()
                 dropselect_selection_strategy.show()
+
+            self.__setup_new_problem()
 
             # btn_search.readonly = False
             btn_search.is_selectable = True
@@ -308,7 +321,7 @@ class RectanglePackingGUI(BaseGUI):
             title='Algorithm',
             items=[
                 ('Local Search', 'local_search'),
-                ('Greedy Search', 'greedy_search')
+                ('Greedy Search', 'greedy_search'),
             ],
             dropselect_id='algorithm',
             font_size=20,
@@ -359,13 +372,14 @@ class RectanglePackingGUI(BaseGUI):
             self.stop_search()
 
             dropselect_selection_strategy = self.menu.get_widget('selection_strategy')
-            neighboorhood_type = args[0]
+            self.problem_type_name = args[0]
+            self.__setup_new_problem()
 
         dropselect_selection_strategy = self.menu.add.dropselect(
             title='Strategy',
             items=[
-                ('Random', None),
-                ('Largest First', None),
+                ('Largest First', 'rectangle_packing_greedy_largest_first'),
+                ('Smallest First', 'rectangle_packing_greedy_smallest_first'),
             ],
             dropselect_id='selection_strategy',
             font_size=20,
@@ -471,14 +485,18 @@ class RectanglePackingGUI(BaseGUI):
             if x + w * self.field_size + margin_vertical >= self.screen.get_width():
                 break
 
-            pygame.draw.rect(self.screen, self.colors['rectangles'],
+            if self.highlighted_rects[rect_idx]:
+                color = self.colors['highlighted_rectangle']
+            else:
+                color = self.colors['rectangles']
+
+            pygame.draw.rect(self.screen, color,
                              [x, y + (reference_size - h) * self.field_size, w * self.field_size, h * self.field_size])
             x += w * self.field_size + margin_vertical
 
     def __start_search(self):
         self.is_searching = True
-        self.search_thread = threading.Thread(target=self.search, args=(self.get_current_solution(),
-                                                                        self.problem, self))
+        self.search_thread = threading.Thread(target=self.search, args=(self.problem, self))
         self.search_thread.start()
 
         if self.is_paused:
@@ -494,7 +512,12 @@ class RectanglePackingGUI(BaseGUI):
 
     def __setup_new_problem(self):
         self.problem = self.problem_types[self.problem_type_name](**self.problem_config)
-        sol = self.problem.get_arbitrary_solution()
+
+        if isinstance(self.problem, (RectanglePackingProblemGreedyLargestFirstStrategy, RectanglePackingProblemGreedySmallestFirstStrategy)):
+            sol = self.problem.get_empty_solution()
+        else:
+            sol = self.problem.get_arbitrary_solution()
+
         self.init_sol = copy.deepcopy(sol)
         self.set_current_solution(sol)
         self.highlighted_rects = np.zeros(self.problem.num_rects, dtype=np.bool)
@@ -579,6 +602,7 @@ class RectanglePackingGUI(BaseGUI):
             diff = np.any(sol.locations != self.current_sol.locations, axis=1) | \
                    (sol.rotations != self.current_sol.rotations)
             self.highlighted_rects[:] = diff
+
         time.sleep(ANIM_SPEED)
 
         # current_sol_matrix = np.zeros((self.problem.num_rects, 3))
