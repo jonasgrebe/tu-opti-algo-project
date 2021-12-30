@@ -42,6 +42,11 @@ class RectanglePackingSolution(Solution):
                                     self.problem.box_length), dtype=np.int)
 
     def put_rect(self, rect_idx, target_pos, rotated, update_ids=False):
+        """Puts the specified rect to the given target position, rotated accordingly.
+        Ignores whether this put action creates an infeasible solution."""
+
+        assert not self.is_put[rect_idx]
+
         box_idx = self.get_box_idx_by_pos(target_pos, update_ids)
 
         self.box_occupancies[box_idx] += self.problem.areas[rect_idx]
@@ -61,10 +66,9 @@ class RectanglePackingSolution(Solution):
         self.is_put[rect_idx] = True
 
     def remove_rect(self, rect_idx):
-        box_idx = self.get_box_idx_by_rect_id(rect_idx)
+        assert self.is_put[rect_idx]
 
-        if box_idx is None:
-            return RuntimeError
+        box_idx = self.get_box_idx_by_rect_id(rect_idx)
 
         self.box_occupancies[box_idx] -= self.problem.areas[rect_idx]
 
