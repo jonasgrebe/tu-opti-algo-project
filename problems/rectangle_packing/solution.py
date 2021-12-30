@@ -22,6 +22,25 @@ class RectanglePackingSolution(Solution):
 
         self.boxes_grid = None
 
+    def reset(self):
+        self.locations = np.zeros((self.problem.num_rects, 2), dtype=np.int)
+        self.rotations = np.zeros(self.problem.num_rects, dtype=np.bool)
+        self.is_put = np.zeros(self.problem.num_rects, dtype=np.bool)
+
+        self.box_coords = np.zeros((self.problem.num_rects, 2), dtype=np.int)
+        num_cols = int(np.ceil(np.sqrt(self.problem.num_rects)))
+        self.box_coords[:, 0] = np.arange(self.problem.num_rects) % num_cols
+        self.box_coords[:, 1] = np.arange(self.problem.num_rects) // num_cols
+        self.box_ids = {tuple(box): idx for idx, box in enumerate(self.box_coords)}
+
+        self.box_occupancies = np.zeros(self.problem.num_rects, dtype=np.int)
+        self.box_rect_cnts = np.zeros(self.problem.num_rects, dtype=np.int)
+        self.box2rects = {idx: [] for idx in range(self.problem.num_rects)}
+
+        self.boxes_grid = np.zeros((self.problem.num_rects,
+                                    self.problem.box_length,
+                                    self.problem.box_length), dtype=np.int)
+
     def put_rect(self, rect_idx, target_pos, rotated, update_ids=False):
         box_idx = self.get_box_idx_by_pos(target_pos, update_ids)
 
@@ -92,6 +111,23 @@ class RectanglePackingSolution(Solution):
 
     def get_empty_box_ids(self) -> np.array:
         return np.where(self.box_rect_cnts == 0)[0]
+
+    def copy(self):
+        duplicate = type(self)(self.problem)
+        clone(self, duplicate)
+        return duplicate
+
+
+def clone(from_sol: RectanglePackingSolution, to_sol: RectanglePackingSolution):
+    to_sol.locations = from_sol.locations.copy()
+    to_sol.rotations = from_sol.rotations.copy()
+    to_sol.is_put = from_sol.is_put.copy()
+    to_sol.box_ids = from_sol.box_ids.copy()
+    to_sol.box_coords = from_sol.box_coords.copy()
+    to_sol.box_occupancies = from_sol.box_occupancies.copy()
+    to_sol.box_rect_cnts = from_sol.box_rect_cnts.copy()
+    to_sol.box2rects = copy.deepcopy(from_sol.box2rects)
+    to_sol.boxes_grid = from_sol.boxes_grid.copy()
 
 
 class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
@@ -188,15 +224,7 @@ class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
 
     def make_standalone(self):
         if not self.standalone:
-            self.locations = self.locations.copy()
-            self.rotations = self.rotations.copy()
-            self.is_put = self.is_put.copy()
-            self.box_ids = self.box_ids.copy()
-            self.box_coords = self.box_coords.copy()
-            self.box_occupancies = self.box_occupancies.copy()
-            self.box_rect_cnts = self.box_rect_cnts.copy()
-            self.box2rects = copy.deepcopy(self.box2rects)
-            self.boxes_grid = self.boxes_grid.copy()
+            clone(self, self)
             self.standalone = True
 
 
@@ -206,25 +234,6 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
 
         self.rect_order = None
         self.placed = False
-
-    def reset(self):
-        self.locations = np.zeros((self.problem.num_rects, 2), dtype=np.int)
-        self.rotations = np.zeros(self.problem.num_rects, dtype=np.bool)
-        self.is_put = np.zeros(self.problem.num_rects, dtype=np.bool)
-
-        self.box_coords = np.zeros((self.problem.num_rects, 2), dtype=np.int)
-        num_cols = int(np.ceil(np.sqrt(self.problem.num_rects)))
-        self.box_coords[:, 0] = np.arange(self.problem.num_rects) % num_cols
-        self.box_coords[:, 1] = np.arange(self.problem.num_rects) // num_cols
-        self.box_ids = {tuple(box): idx for idx, box in enumerate(self.box_coords)}
-
-        self.box_occupancies = np.zeros(self.problem.num_rects, dtype=np.int)
-        self.box_rect_cnts = np.zeros(self.problem.num_rects, dtype=np.int)
-        self.box2rects = {idx: [] for idx in range(self.problem.num_rects)}
-
-        self.boxes_grid = np.zeros((self.problem.num_rects,
-                                    self.problem.box_length,
-                                    self.problem.box_length), dtype=np.int)
 
     def set_rect_selection_order(self, rect_selection_order):
         self.rect_order = rect_selection_order
@@ -242,20 +251,8 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
         self.is_put[min(rect_idx, target_order_pos):] = False
 
     def copy(self):
-        duplicate = RectanglePackingSolutionRuleBased(self.problem)
-
+        duplicate = super().copy()
         duplicate.rect_order = self.rect_order.copy()
-
-        duplicate.locations = self.locations.copy()
-        duplicate.rotations = self.rotations.copy()
-        duplicate.is_put = self.is_put.copy()
-        duplicate.box_ids = self.box_ids.copy()
-        duplicate.box_coords = self.box_coords.copy()
-        duplicate.box_occupancies = self.box_occupancies.copy()
-        duplicate.box_rect_cnts = self.box_rect_cnts.copy()
-        duplicate.box2rects = copy.deepcopy(self.box2rects)
-        duplicate.boxes_grid = self.boxes_grid.copy()
-
         return duplicate
 
 
@@ -263,42 +260,8 @@ class RectanglePackingSolutionGreedy(RectanglePackingSolution):
     def __init__(self, problem):
         super(RectanglePackingSolutionGreedy, self).__init__(problem)
 
-    def reset(self):
-        self.locations = np.zeros((self.problem.num_rects, 2), dtype=np.int)
-        self.rotations = np.zeros(self.problem.num_rects, dtype=np.bool)
-        self.is_put = np.zeros(self.problem.num_rects, dtype=np.bool)
-
-        self.box_coords = np.zeros((self.problem.num_rects, 2), dtype=np.int)
-        num_cols = int(np.ceil(np.sqrt(self.problem.num_rects)))
-        self.box_coords[:, 0] = np.arange(self.problem.num_rects) % num_cols
-        self.box_coords[:, 1] = np.arange(self.problem.num_rects) // num_cols
-        self.box_ids = {tuple(box): idx for idx, box in enumerate(self.box_coords)}
-
-        self.box_occupancies = np.zeros(self.problem.num_rects, dtype=np.int)
-        self.box_rect_cnts = np.zeros(self.problem.num_rects, dtype=np.int)
-        self.box2rects = {idx: [] for idx in range(self.problem.num_rects)}
-
-        self.boxes_grid = np.zeros((self.problem.num_rects,
-                                    self.problem.box_length,
-                                    self.problem.box_length), dtype=np.int)
-
     def is_complete(self):
         return np.all(self.is_put)
 
     def get_remaining_elements(self):
         return np.where(~self.is_put)[0]
-
-    def copy(self):
-        duplicate = RectanglePackingSolutionGreedy(self.problem)
-
-        duplicate.locations = self.locations.copy()
-        duplicate.rotations = self.rotations.copy()
-        duplicate.is_put = self.is_put.copy()
-        duplicate.box_ids = self.box_ids.copy()
-        duplicate.box_coords = self.box_coords.copy()
-        duplicate.box_occupancies = self.box_occupancies.copy()
-        duplicate.box_rect_cnts = self.box_rect_cnts.copy()
-        duplicate.box2rects = copy.deepcopy(self.box2rects)
-        duplicate.boxes_grid = self.boxes_grid.copy()
-
-        return duplicate
