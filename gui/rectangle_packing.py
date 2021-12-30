@@ -9,15 +9,17 @@ import copy
 from algos import local_search, greedy_search
 from gui import BaseGUI
 from problems.rectangle_packing.problem import (
-    RectanglePackingProblemGeometryBased,
     RectanglePackingSolution,
+    RectanglePackingProblemGeometryBased,
     RectanglePackingProblemRuleBased,
+    RectanglePackingProblemOverlap,
     RectanglePackingSolutionGeometryBased,
     RectanglePackingProblemGreedyLargestFirstStrategy,
     RectanglePackingProblemGreedySmallestFirstStrategy
 )
 
 ZOOM_STEP_FACTOR = 1.1
+
 
 class RectanglePackingGUI(BaseGUI):
     def __init__(self):
@@ -30,6 +32,7 @@ class RectanglePackingGUI(BaseGUI):
         self.problem_types = {
             'rectangle_packing_geometry_based': RectanglePackingProblemGeometryBased,
             'rectangle_packing_rule_based': RectanglePackingProblemRuleBased,
+            'rectangle_packing_overlap': RectanglePackingProblemOverlap,
             'rectangle_packing_greedy_largest_first': RectanglePackingProblemGreedyLargestFirstStrategy,
             'rectangle_packing_greedy_smallest_first': RectanglePackingProblemGreedySmallestFirstStrategy
         }
@@ -368,6 +371,7 @@ class RectanglePackingGUI(BaseGUI):
             items=[
                 ('Geometry-based', 'rectangle_packing_geometry_based'),
                 ('Rule-based', 'rectangle_packing_rule_based'),
+                ('Allow Overlap', 'rectangle_packing_overlap'),
             ],
             dropselect_id='neighborhood',
             onchange=dropselect_neighborhood_onchange,
@@ -459,7 +463,6 @@ class RectanglePackingGUI(BaseGUI):
             shadow_width=10
         )
         self.main_frame.pack(rangeslider_anim_speed, margin=(0, 15))
-
 
         def reset_search():
             # btn_reset = self.menu.get_widget('reset_search')
@@ -714,12 +717,12 @@ class RectanglePackingGUI(BaseGUI):
                         self.selected_rect_idx = rect_idx
                         self.selection_rotated = False
                     else:
-                        new_solution = self.current_sol.copy()
-                        new_solution.make_standalone()
-                        rotated = self.selection_rotated != self.current_sol.rotations[self.selected_rect_idx]
+                        new_solution = self.current_sol.copy(True)
+                        rotated = self.selection_rotated != new_solution.rotations[self.selected_rect_idx]
                         new_solution.move_rect(self.selected_rect_idx, np.array([x, y]), rotated)
-                        new_solution.apply_pending_move()
                         if self.problem.is_feasible(new_solution):
+                            if isinstance(new_solution, RectanglePackingSolutionGeometryBased):
+                                new_solution.apply_pending_move()
                             self.set_current_solution(new_solution)
                             self.selected_rect_idx = None
 
