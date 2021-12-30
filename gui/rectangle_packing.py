@@ -656,20 +656,6 @@ class RectanglePackingGUI(BaseGUI):
 
         time.sleep(self.anim_sleep)
 
-        # current_sol_matrix = np.zeros((self.problem.num_rects, 3))
-        # new_sol_matrix = np.zeros((self.problem.num_rects, 3))
-        # current_sol_matrix[:, 0:2], current_sol_matrix[:, 2] = self.current_sol.locations, self.current_sol.rotations
-        # new_sol_matrix[:, 0:2], new_sol_matrix[:, 2] = sol.locations, sol.rotations
-        # differences = np.any(current_sol_matrix != new_sol_matrix, axis=1)
-
-        # if not np.any(differences):
-        #     changed_rect_idx = sol.pending_move_params[0]
-        # else:
-        #     changed_rect_idx = np.argmax(differences)
-
-        # Select the rect to change
-        # self.selected_rect_idx = changed_rect_idx
-
         if isinstance(sol, RectanglePackingSolutionGeometryBased):
             sol.apply_pending_move()
 
@@ -678,7 +664,7 @@ class RectanglePackingGUI(BaseGUI):
         time.sleep(self.anim_sleep)
 
         # Unhighlight the changed rects
-        self.highlighted_rects[:] = None
+        self.highlighted_rects[:] = 0
 
     def __run(self):
         self.__init_gui()
@@ -686,17 +672,9 @@ class RectanglePackingGUI(BaseGUI):
         self.__setup_new_problem()
 
         frame = 0
-
         while self.running:
-            t = time.time()
             self.__handle_user_input()
-            t_unser_input = time.time() - t
             self.__render()
-            t_total = time.time()
-            t_render = t_total - t_unser_input
-
-            # print("\rTime shares: Input handling %.1f - rendering %.1f" %
-            #       (t_unser_input / t_total, t_render / t_total), end="")
 
             self.frame_times[frame % 2000] = time.time()
             frame += 1
@@ -792,9 +770,6 @@ class RectanglePackingGUI(BaseGUI):
         self.zoom_level = target_zoom_level
 
     def __render(self):
-        times = np.zeros(7)
-        t = time.time()
-
         # Screen area
         pygame.draw.rect(self.screen, self.colors['grid_bg'],
                          [self.scr_marg_left, self.scr_marg_top,
@@ -802,54 +777,27 @@ class RectanglePackingGUI(BaseGUI):
 
         # Get visible grid boundary
         top_left = -self.cam_pos // self.field_size + 1
-        bottom_right = (-self.cam_pos + np.asarray([self.area_width, self.area_height])) // self.field_size + 1
-
         top_left = top_left.astype(np.int32)
+        bottom_right = (-self.cam_pos + np.asarray([self.area_width, self.area_height])) // self.field_size + 1
         bottom_right = bottom_right.astype(np.int32)
 
-        times[0] = time.time() - t
-        t = time.time()
-
         self.highlight_non_empty_boxes(top_left, bottom_right)
-
-        times[1] = time.time() - t
-        t = time.time()
 
         self.draw_fine_grid(top_left, bottom_right)
 
         if self.problem is not None:
             self.draw_box_grid(top_left, bottom_right)
 
-            times[2] = time.time() - t
-            t = time.time()
-
             if self.current_sol is not None:
                 self.draw_rects(top_left, bottom_right)
 
-            times[3] = time.time() - t
-            t = time.time()
-
         self.draw_hover_shape()
-
-        times[4] = time.time() - t
-        t = time.time()
 
         if self.problem is not None and self.current_sol is not None:
             self.draw_text_info()
 
-        times[5] = time.time() - t
-        t = time.time()
-
         if self.main_menu.is_enabled():
             self.main_menu.draw(self.screen)
-
-        times[6] = time.time() - t
-        t_total = np.sum(times)
-        shares = times / t_total
-
-        # print("\rTime shares: preparations %.3f - box highlight %.3f - grid lines %.3f - "
-        #       "rects %.3f - hover %.3f - text %.3f - menu %.3f" %
-        #       (shares[0], shares[1], shares[2], shares[3], shares[4], shares[5], shares[6]), end="")
 
         self.__render_rectangle_preview()
 
@@ -871,7 +819,6 @@ class RectanglePackingGUI(BaseGUI):
         xs, ys = occupied_boxes.T * l
         visible_boxes = ((left <= xs + l) & (xs < right)) & \
                         ((top <= ys + l) & (ys < bottom))
-        # print(" ", np.sum(visible_boxes), end="")
         return occupied_boxes[visible_boxes]
 
     def draw_rects(self, view_top_left, view_bottom_right):
