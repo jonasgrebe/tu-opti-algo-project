@@ -18,8 +18,6 @@ from problems.rectangle_packing.problem import (
 )
 
 ZOOM_STEP_FACTOR = 1.1
-ANIM_SPEED = 0.5  # sec
-
 
 class RectanglePackingGUI(BaseGUI):
     def __init__(self):
@@ -65,6 +63,7 @@ class RectanglePackingGUI(BaseGUI):
         self.is_paused = False
         self.search_thread = None
         self.search_start_time = None
+        self.anim_sleep = 2
 
     @property
     def colors(self):
@@ -236,7 +235,7 @@ class RectanglePackingGUI(BaseGUI):
         self.problem_config_frame.pack(rangeslider_h_min, margin=(0, 35))
 
         def rangeslider_h_max_onchange(s, *args) -> None:
-            rangeslider_w_max = self.problem_config_menu.get_widget('rangeslider_h_max')
+            rangeslider_h_max = self.problem_config_menu.get_widget('rangeslider_h_max')
             h_max = int(rangeslider_h_max.get_value())
             self.__update_problem_config({'h_max': h_max})
 
@@ -263,7 +262,7 @@ class RectanglePackingGUI(BaseGUI):
 
         # Main Menu:
 
-        self.main_frame = self.main_menu.add.frame_v(width=270, height=550,
+        self.main_frame = self.main_menu.add.frame_v(width=270, height=600,
                                                      padding=(15, 15),
                                                      background_color=self.colors["menu_bg"],
                                                      align=pygame_menu.locals.ALIGN_RIGHT)
@@ -445,6 +444,22 @@ class RectanglePackingGUI(BaseGUI):
         btn_search.set_onmouseover(lambda: button_onmouseover(btn_search))
         btn_search.set_onmouseleave(lambda: button_onmouseleave(btn_search))
         self.main_frame.pack(btn_search, margin=(0, 40))
+
+        def rangeslider_anim_speed_onchange(s, *args) -> None:
+            rangeslider_animation_speed = self.main_menu.get_widget('rangeslider_animation_speed')
+            self.anim_sleep = 3 * (1 - int(rangeslider_animation_speed.get_value()) / 100)
+
+        rangeslider_anim_speed = self.main_menu.add.range_slider(
+            'Speed',
+            rangeslider_id='rangeslider_animation_speed',
+            default=self.anim_sleep,
+            range_values=(1, 100),
+            increment=1,
+            onchange=rangeslider_anim_speed_onchange,
+            shadow_width=10
+        )
+        self.main_frame.pack(rangeslider_anim_speed, margin=(0, 15))
+
 
         def reset_search():
             # btn_reset = self.menu.get_widget('reset_search')
@@ -639,7 +654,7 @@ class RectanglePackingGUI(BaseGUI):
                    (sol.rotations != self.current_sol.rotations)
             self.highlighted_rects[:] = diff
 
-        time.sleep(ANIM_SPEED)
+        time.sleep(self.anim_sleep)
 
         # current_sol_matrix = np.zeros((self.problem.num_rects, 3))
         # new_sol_matrix = np.zeros((self.problem.num_rects, 3))
@@ -660,7 +675,7 @@ class RectanglePackingGUI(BaseGUI):
 
         # Apply new solution
         self.set_current_solution(sol)
-        time.sleep(ANIM_SPEED)
+        time.sleep(self.anim_sleep)
 
         # Unhighlight the changed rects
         self.highlighted_rects[:] = None
