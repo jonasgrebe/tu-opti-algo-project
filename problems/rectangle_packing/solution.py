@@ -22,9 +22,17 @@ class RectanglePackingSolution(Solution):
 
         self.boxes_grid = None
 
-    def reset(self):
-        self.locations = np.zeros((self.problem.num_rects, 2), dtype=np.int)
-        self.rotations = np.zeros(self.problem.num_rects, dtype=np.bool)
+    def reset(self, locations=None, rotations=None):
+        if locations is not None:
+            self.locations = locations
+        else:
+            self.locations = np.zeros((self.problem.num_rects, 2), dtype=np.int)
+
+        if rotations is not None:
+            self.rotations = rotations
+        else:
+            self.rotations = np.zeros(self.problem.num_rects, dtype=np.bool)
+
         self.is_put = np.zeros(self.problem.num_rects, dtype=np.bool)
 
         self.box_coords = np.zeros((self.problem.num_rects, 2), dtype=np.int)
@@ -40,6 +48,13 @@ class RectanglePackingSolution(Solution):
         self.boxes_grid = np.zeros((self.problem.num_rects,
                                     self.problem.box_length,
                                     self.problem.box_length), dtype=np.int)
+
+    def build(self, locations, rotations):
+        """Builds all the box information (such as self.boxes_grid) from rect
+        locations and rect rotations."""
+        self.reset(locations, rotations)
+        for rect_idx in range(self.problem.num_rects):
+            self.put_rect(rect_idx, self.locations[rect_idx], self.rotations[rect_idx], update_ids=True)
 
     def put_rect(self, rect_idx, target_pos, rotated, update_ids=False):
         """Puts the specified rect to the given target position, rotated accordingly.
@@ -92,6 +107,16 @@ class RectanglePackingSolution(Solution):
     def move_rect(self, rect_idx, target_pos, rotated):
         self.remove_rect(rect_idx)
         self.put_rect(rect_idx, target_pos, rotated, update_ids=True)
+
+    def get_rect_sizes(self):
+        """Returns the rect sizes, taking rotations into account."""
+        _, rotations = self.locations, self.rotations
+
+        sizes = self.problem.sizes.copy()
+        sizes[rotations, 0] = self.problem.sizes[rotations, 1]
+        sizes[rotations, 1] = self.problem.sizes[rotations, 0]
+
+        return sizes
 
     def get_box_idx_by_rect_id(self, rect_idx):
         box = tuple(self.locations[rect_idx] // self.problem.box_length)
@@ -170,49 +195,7 @@ class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
         self.pending_move_params = None
 
     def set_solution(self, locations, rotations):
-        self.locations = locations.copy()
-        self.rotations = rotations.copy()
-        self.is_put = np.ones(self.problem.num_rects, dtype=np.bool)
-
-        self.__set_box_info(locations, rotations)
-
-    def __set_box_info(self, locations, rotations):
-        # Fetch rect info
-        rect_box_coords = locations // self.problem.box_length
-        box_relative_locations = locations % self.problem.box_length
-        sizes = self.problem.sizes.copy()
-
-        # Consider all rotations
-        sizes[rotations, 0] = self.problem.sizes[rotations, 1]
-        sizes[rotations, 1] = self.problem.sizes[rotations, 0]
-
-        # Identify all occupied boxes
-        occupied_boxes = list(set(tuple(map(tuple, rect_box_coords))))
-
-        # Save their IDs and their coordinates
-        self.box_ids = {b: idx for idx, b in enumerate(occupied_boxes)}
-        self.box_coords = np.array(occupied_boxes, dtype=np.int)
-
-        # Determine box occupancies, rect counts and box to rect relation
-        occupancies = np.zeros(len(rect_box_coords), dtype=np.int)
-        rect_cnts = np.zeros(len(rect_box_coords), dtype=np.int)
-        box2rects = {i: [] for i in range(self.problem.num_rects)}
-        for rect_idx, box in enumerate(rect_box_coords):
-            box_id = self.box_ids[tuple(box)]
-            occupancies[box_id] += self.problem.areas[rect_idx]
-            rect_cnts[box_id] += 1
-            box2rects[box_id] += [rect_idx]
-        self.box_occupancies, self.box_rect_cnts, self.box2rects = occupancies, rect_cnts, box2rects
-
-        # Generate box grid array
-        self.boxes_grid = np.zeros((self.problem.num_rects,
-                                    self.problem.box_length,
-                                    self.problem.box_length), dtype=np.int)
-        begins = box_relative_locations
-        ends = box_relative_locations + sizes
-        for begin, end, box in zip(begins, ends, rect_box_coords):
-            box_id = self.box_ids[tuple(box)]
-            self.boxes_grid[box_id, begin[0]:end[0], begin[1]:end[1]] += 1
+        self.build(locations.copy(), rotations.copy())
 
     def move_rect(self, rect_idx, target_pos, rotated):
         """Assumes that this action leads to a feasible solution."""

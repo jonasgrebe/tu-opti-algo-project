@@ -166,7 +166,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
             orig_pos, orig_rotated = sol.locations[rect_idx], sol.rotations[rect_idx]
             sol.apply_pending_move()
 
-            feasible = self.__is_feasible(sol)
+            feasible = rects_correctly_placed(sol)
 
             # Re-construct original solution
             sol.move_rect(rect_idx, orig_pos, orig_rotated)
@@ -175,29 +175,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
 
             return feasible
         else:
-            return self.__is_feasible(sol)
-
-    def __is_feasible(self, sol: RectanglePackingSolutionGeometryBased):
-        locations, rotations = sol.locations, sol.rotations
-
-        # Collect rectangle properties
-        sizes = self.sizes.copy()
-
-        # Consider all rotations
-        sizes[rotations, 0] = self.sizes[rotations, 1]
-        sizes[rotations, 1] = self.sizes[rotations, 0]
-
-        # ---- First, check for any box violation (each rect must lie inside a single box) ----
-        locations_rel = locations % self.box_length
-        ends_rel = locations_rel + sizes
-        if np.any(ends_rel > self.box_length):
-            return False
-
-        # ---- Second, check that no two rects intersect ----
-        if np.any(sol.boxes_grid > 1):
-            return False
-
-        return True
+            return rects_correctly_placed(sol)
 
     def get_arbitrary_solution(self):
         """Returns a solution where each rectangle is placed into an own box (not rotated)."""
@@ -330,11 +308,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
     def heuristic(self, sol: RectanglePackingSolutionRuleBased):
         if not sol.all_rects_put():
             self.put_all_rects(sol)
-
-        box_occupancies = sol.box_occupancies
-        box_capacity = self.box_length ** 2
-        cost = 1 + 0.9 * (box_occupancies[box_occupancies > 0] / box_capacity - 1) ** 3
-        return np.sum(cost)
+        return occupancy_heuristic(sol)
 
     def is_feasible(self, sol: RectanglePackingSolutionRuleBased):
         rect_id_set = set(list(sol.rect_order))
@@ -344,6 +318,11 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
 
 
 class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProblem):
+    def __init__(self, *args, **kwargs):
+        super(RectanglePackingProblemOverlap, self).__init__(*args, **kwargs)
+        self.allowed_overlap = 1  # 1 = rects are allowed to overlap completely, 0 = no overlap allowed
+        self.penalty_factor = 0
+
     def get_neighborhood(self, sol: RectanglePackingSolutionOverlap):
         pass
 
@@ -351,16 +330,57 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
         pass
 
     def get_arbitrary_solution(self):
-        pass
+        """Returns a solution where each rectangle is placed at the origin."""
+        sol = RectanglePackingSolutionOverlap(self)
+        locations = np.zeros((self.num_rects, 2), dtype=np.int)
+        rotations = np.zeros(self.num_rects, dtype=np.bool)
+        sol.build(locations, rotations)
+        return sol
 
     def objective_function(self, sol: RectanglePackingSolutionOverlap):
-        pass
+        return np.sum(sol.box_rect_cnts > 0)
 
     def heuristic(self, sol: RectanglePackingSolutionOverlap):
-        pass
+        return occupancy_heuristic(sol) + self.penalty(sol)
+
+    def penalty(self, sol: RectanglePackingSolutionOverlap):
+        return np.sum(sol.boxes_grid[sol.boxes_grid > 1] - 1) * self.penalty_factor
 
     def is_feasible(self, sol: RectanglePackingSolutionOverlap):
-        pass
+        return rects_respect_boxes(sol) and self.__rect_overlap_tolerable(sol)
+
+    def __rect_overlap_tolerable(self, sol: RectanglePackingSolutionOverlap):
+        # Identify boxes with overlap
+        overlap_box_ids = list(set(list(np.where(sol.boxes_grid > 1)[0])))
+
+        sizes = sol.get_rect_sizes()
+
+        # For each box check the overlaps of its contained rects
+        for box_idx in overlap_box_ids:
+            contained_rects_ids = sol.box2rects[box_idx]
+            for i, rect_1 in enumerate(contained_rects_ids[:-1]):  # O(n^2) with n = len(contained_rects_ids)
+                for rect_2 in contained_rects_ids[i+1:]:
+                    x_1, y_1 = sol.locations[rect_1]
+                    x_2, y_2 = sol.locations[rect_2]
+                    w_1, h_1 = sizes[rect_1]
+                    w_2, h_2 = sizes[rect_2]
+
+                    l_1, r_1, t_1, b_1 = x_1, x_1 + w_1, y_1, y_1 + h_1
+                    l_2, r_2, t_2, b_2 = x_2, x_2 + w_2, y_2, y_2 + h_2
+
+                    x_overlap = max(r_2 - l_1, 0) - max(l_2 - l_1, 0) - max(r_2 - r_1, 0) + max(l_2 - r_1, 0)
+                    y_overlap = max(b_2 - t_1, 0) - max(t_2 - t_1, 0) - max(b_2 - b_1, 0) + max(t_2 - b_1, 0)
+
+                    overlap_area = x_overlap * y_overlap
+                    if overlap_area > 0:
+                        print("overlap_area:", overlap_area)
+
+                    total_area = max(sol.problem.areas[rect_1], sol.problem.areas[rect_2])
+                    overlap = overlap_area / total_area
+                    if overlap > self.allowed_overlap:
+                        return False
+
+        return True
 
 
 class RectanglePackingProblemGreedyLargestFirstStrategy(RectanglePackingProblem, ConstructionProblem):
@@ -527,3 +547,29 @@ class RectanglePackingProblemGreedySmallestFirstStrategy(RectanglePackingProblem
                 solutions += [new_solution]
 
             yield [min(solutions, key=self.heuristic)]
+
+
+def occupancy_heuristic(sol: RectanglePackingSolution):
+    box_occupancies = sol.box_occupancies
+    box_capacity = sol.problem.box_length ** 2
+    cost = 1 + 0.9 * (box_occupancies[box_occupancies > 0] / box_capacity - 1) ** 3
+    return np.sum(cost)
+
+
+def rects_correctly_placed(sol: RectanglePackingSolution):
+    return rects_respect_boxes(sol) and rects_are_disjoint(sol)
+
+
+def rects_respect_boxes(sol: RectanglePackingSolution):
+    """Checks if each rect lies inside a single box.
+    Requires the solution to be built already."""
+    sizes = sol.get_rect_sizes()
+    locations_rel = sol.locations % sol.problem.box_length
+    ends_rel = locations_rel + sizes
+    return not np.any(ends_rel > sol.problem.box_length)
+
+
+def rects_are_disjoint(sol: RectanglePackingSolution):
+    """Checks if no rects intersect.
+    Requires the solution to be built already."""
+    return not np.any(sol.boxes_grid > 1)
