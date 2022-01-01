@@ -862,9 +862,6 @@ class RectanglePackingGUI(BaseGUI):
 
 
     def highlight_overlapping_fields(self):
-        if not isinstance(self.problem, RectanglePackingProblemOverlap):
-            return
-
         if self.current_sol.boxes_grid.max() <= 1:
             return
 
