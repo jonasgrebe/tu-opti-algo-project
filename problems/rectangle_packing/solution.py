@@ -258,8 +258,46 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
 
 
 class RectanglePackingSolutionOverlap(RectanglePackingSolution):
+
     def __init__(self, problem):
         super(RectanglePackingSolutionOverlap, self).__init__(problem)
+
+        self.standalone = True  # If False, attributes of this class require deepcopy before any modification
+        self.move_pending = False
+        self.pending_move_params = None
+
+    def set_solution(self, locations, rotations):
+        self.build(locations.copy(), rotations.copy())
+
+    def move_rect(self, rect_idx, target_pos, rotated):
+        """Assumes that this action leads to a feasible solution."""
+        if self.move_pending:
+            raise ValueError("Cannot add another pending move if there is already one.")
+        self.move_pending = True
+        self.pending_move_params = rect_idx, target_pos, rotated
+
+    def apply_pending_move(self):
+        if not self.move_pending:
+            return
+
+        rect_idx, target_pos, rotated = self.pending_move_params
+        super().move_rect(rect_idx, target_pos, rotated)
+
+        self.move_pending = False
+        self.pending_move_params = None
+
+    def copy(self, true=False):
+        if self.move_pending:
+            self.apply_pending_move()
+
+        new_solution = super().copy(true)
+        new_solution.standalone = true
+        return new_solution
+
+    def make_standalone(self):
+        if not self.standalone:
+            true_copy(self, self)
+            self.standalone = True
 
 
 class RectanglePackingSolutionGreedy(RectanglePackingSolution):

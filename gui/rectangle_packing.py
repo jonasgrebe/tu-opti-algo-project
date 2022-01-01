@@ -366,6 +366,16 @@ class RectanglePackingGUI(BaseGUI):
             self.problem_type_name = args[0]
             self.__setup_new_problem()
 
+            rangeslider_overlap = self.main_menu.get_widget('rangeslider_overlap')
+            rangeslider_penalty = self.main_menu.get_widget('rangeslider_penalty')
+
+            if self.problem_type_name == 'rectangle_packing_overlap':
+                rangeslider_overlap.show()
+                rangeslider_penalty.show()
+            else:
+                rangeslider_overlap.hide()
+                rangeslider_penalty.hide()
+
         dropselect_neighborhood = self.main_menu.add.dropselect(
             title='',
             items=[
@@ -390,6 +400,42 @@ class RectanglePackingGUI(BaseGUI):
         dropselect_neighborhood.set_onmouseover(lambda: dropselect_onmouseover(dropselect_neighborhood))
         dropselect_neighborhood.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_neighborhood))
         self.main_frame.pack(dropselect_neighborhood, margin=(15, 0))
+
+        def rangeslider_overlap_onchange(s, *args) -> None:
+            assert isinstance(self.problem, RectanglePackingProblemOverlap)
+
+            rangeslider_overlap = self.main_menu.get_widget('rangeslider_overlap')
+            self.problem.allowed_overlap = rangeslider_overlap.get_value()
+
+        rangeslider_overlap = self.main_menu.add.range_slider(
+            'Overlap',
+            rangeslider_id='rangeslider_overlap',
+            default=0.0,
+            range_values=(0, 1),
+            increment=0.01,
+            onchange=rangeslider_overlap_onchange,
+            shadow_width=10
+        )
+        rangeslider_overlap.hide()
+        self.main_frame.pack(rangeslider_overlap, margin=(0, 15))
+
+        def rangeslider_penalty_onchange(s, *args) -> None:
+            assert isinstance(self.problem, RectanglePackingProblemOverlap)
+
+            rangeslider_penalty = self.main_menu.get_widget('rangeslider_penalty')
+            self.problem.penalty_factor = rangeslider_penalty.get_value()
+
+        rangeslider_penalty = self.main_menu.add.range_slider(
+            'Penalty',
+            rangeslider_id='rangeslider_penalty',
+            default=0.0,
+            range_values=(0, 1000),
+            increment=0.1,
+            onchange=rangeslider_penalty_onchange,
+            shadow_width=10
+        )
+        rangeslider_penalty.hide()
+        self.main_frame.pack(rangeslider_penalty, margin=(0, 15))
 
         label = self.main_menu.add.label("Strategy",
                                          label_id="selection_strategy_label",
@@ -785,7 +831,6 @@ class RectanglePackingGUI(BaseGUI):
         bottom_right = bottom_right.astype(np.int32)
 
         self.highlight_non_empty_boxes(top_left, bottom_right)
-
         self.draw_fine_grid(top_left, bottom_right)
 
         if self.problem is not None:
@@ -794,6 +839,7 @@ class RectanglePackingGUI(BaseGUI):
             if self.current_sol is not None:
                 self.draw_rects(top_left, bottom_right)
 
+        self.highlight_overlapping_fields()
         self.draw_hover_shape()
 
         if self.problem is not None and self.current_sol is not None:
@@ -813,6 +859,26 @@ class RectanglePackingGUI(BaseGUI):
         visible_boxes = self.get_visible_boxes(view_top_left, view_bottom_right)
         for (x, y) in visible_boxes:
             self.draw_rect(x * l, y * l, l, l, color=self.colors['non_empty_boxes'])
+
+
+    def highlight_overlapping_fields(self):
+        if not isinstance(self.problem, RectanglePackingProblemOverlap):
+            return
+
+        if self.current_sol.boxes_grid.max() <= 1:
+            return
+
+        fs = self.field_size
+        l = self.problem.box_length
+
+        b, x, y = np.where(self.current_sol.boxes_grid > 1)
+
+        for (bf, xf, yf) in zip(b, x, y):
+
+            bfx, bfy = self.current_sol.box_coords[bf]
+
+            self.draw_rect(bfx * l + xf, bfy * l + yf, 1, 1, color=self.colors["overlap"])
+
 
     def get_visible_boxes(self, view_top_left, view_bottom_right):
         l = self.problem.box_length
@@ -850,6 +916,7 @@ class RectanglePackingGUI(BaseGUI):
         if surface is None:
             surface = self.screen
         x_p, y_p, w_p, h_p = self.coords2pixels(x, y, w, h)
+
         pygame.draw.rect(surface, color, [x_p, y_p, w_p, h_p])
 
     def coords2pixels(self, x, y, w=None, h=None):
