@@ -369,16 +369,16 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
             orig_pos, orig_rotated = sol.locations[rect_idx], sol.rotations[rect_idx]
             sol.apply_pending_move()
 
-            feasible = rects_correctly_placed(sol)
+            feasible = self.__rect_overlap_tolerable(sol) and rects_respect_boxes(sol)
 
             # Re-construct original solution
             sol.move_rect(rect_idx, orig_pos, orig_rotated)
             sol.apply_pending_move()
-            sol.move_rect(rect_idx, target_pos, rotated)
+            sol.move_rect(rect_idx, target_pos, orig_rotated)
 
             return feasible
         else:
-            return rects_correctly_placed(sol)
+            return self.__rect_overlap_tolerable(sol) and rects_respect_boxes(sol)
 
     def get_arbitrary_solution(self):
         """Returns a solution where each rectangle is placed into an own box (not rotated)."""
@@ -415,20 +415,14 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
 
             for rotate in [False, True]:
                 # Identify all locations which are allowed for placement
-                relevant_locs, _ = self.place(rect_size=self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1],
-                                              boxes_grid=solution.boxes_grid,
-                                              selected_box_ids=selected_box_ids,
-                                              box_coords=solution.box_coords)
-
-                """
-                Note: Why do overlaps appear although this placement method is commented out
-                # Identify all locations which are allowed for placement
                 relevant_locs, _ = self.__place_with_overlap(rect_size=self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1],
                                               boxes_grid=solution.boxes_grid,
                                               selected_box_ids=selected_box_ids,
-                                              box_coords=solution.box_coords.
-                                              box2rects=sol.box2rects, locations=sol.locations, rotated=sol.rotations)
-                """
+                                              box_coords=solution.box_coords,
+                                              rectangle_fields=solution.rectangle_fields,
+                                              box2rects=solution.box2rects
+                                              )
+
 
                 # Prune abundant options
                 relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
@@ -442,6 +436,59 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
 
             # print("generating %d neighbors took %.3f s" % (len(solutions), time.time() - t))
             yield solutions
+
+    def __place_with_overlap(self, rect_size, boxes_grid, selected_box_ids, rectangle_fields, box2rects, box_coords):
+        regions_to_place = np.lib.stride_tricks.sliding_window_view(boxes_grid[selected_box_ids],
+                                                                    rect_size, axis=(1, 2))
+
+
+        if self.allowed_overlap == 0:
+            b, x, y = np.where(~np.any(regions_to_place, axis=(3, 4)))
+        else:
+            assert self.allowed_overlap > 0 and self.allowed_overlap <= 1
+
+            # -------- quick filter for rectangles in the selected boxes -------
+            #contained_rectangles = []
+            #for box_id in selected_box_ids:
+            #    contained_rectangles.extend(box2rects[box_id])
+            #contained_rectangles = np.array(contained_rectangles)
+
+            # (b, rects, L, L) -> (b, rects, x, y, w, h)
+            regions_to_place_per_rect = np.lib.stride_tricks.sliding_window_view(rectangle_fields[selected_box_ids], rect_size, axis=(1, 2))
+
+            # (b, rects, x, y, w, h) -> (b, x, y, rects, w, h)
+            regions_to_place_per_rect = regions_to_place_per_rect.transpose((0, 2, 3, 1, 4, 5))
+
+            # --------- get only the rects per region that overlap -------------
+            # (b, x, y, rects, w, h) -> (b, x, y, rects)
+            r_overlaps = regions_to_place_per_rect.sum(axis=(4, 5))
+
+            # (b, x, y, rects)
+            b, x, y, r = np.where(r_overlaps >= 0)
+
+            r1_area = np.prod(rect_size)
+            r2_areas = self.areas[r]
+
+            max_areas = np.maximum(r1_area, r2_areas)
+            valid = np.divide(r_overlaps.reshape(1,-1), max_areas) <= self.allowed_overlap
+            valid = valid.reshape(r_overlaps.shape)
+
+            b, x, y = np.where(np.all(valid, axis=3))
+
+        # Consider only one placement per box
+        b_cmp = b.copy()
+        b_cmp[0] = -1
+        b_cmp[1:] = b[:-1]
+        first_valid_placement = b_cmp < b
+        b, x, y, = b[first_valid_placement], x[first_valid_placement], y[first_valid_placement]
+
+        # Convert into location data
+        b_id = selected_box_ids[b]
+        b_loc = box_coords[b_id] * self.box_length
+        locs = b_loc + np.stack([x, y], axis=1)
+
+        return locs, x
+
 
     def __rect_overlap_tolerable(self, sol: RectanglePackingSolutionOverlap):
         # Identify boxes with overlap
@@ -475,97 +522,6 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
                         return False
 
         return True
-
-    def __place_with_overlap(self, rect_size, boxes_grid, selected_box_ids, box_coords, box2rects, locations, rotated):
-        regions_to_place = np.lib.stride_tricks.sliding_window_view(boxes_grid[selected_box_ids],
-                                                                    rect_size, axis=(1, 2))
-
-        if self.allowed_overlap == 0:
-            b, x, y = np.where(~np.any(regions_to_place, axis=(3, 4)))
-        else:
-            assert self.allowed_overlap > 0 and self.allowed_overlap <= 1
-
-            # Note: An overlap of the placed rectangle R1 and an already existing rectangle R2
-            # is "valid" iff |overlap(R1, R2)| / max(area(R1), area(R2)) <= OVERLAP
-
-            # Get the area of the rectangle that is to be placed
-            r1_area = np.prod(rect_size)
-            # Precompute the rectangle areas
-            rect_areas = self.get_rect_areas()
-
-            # Compute the number of potential overlaps for each of the candidate regions
-            num_overlaps_per_region = np.sum(regions_to_place > 0, axis=(3, 4))
-            # Determine the regions that have a valid overlap regarding R1
-            ratio = np.divide(num_overlaps_per_region, r1_area)
-            overlap_valid_for_r1 = np.less_equal(ratio, self.allowed_overlap) # shape: (b, x, y)
-
-            # Get the fields in each region that already hold a rectangle
-            b, x, y, _, _ = np.where(regions_to_place > 0)
-
-            # Determine the field coordinates of the region (left, top)
-            b_ids = selected_box_ids[b]
-            region_locs = box_coords[b_ids] * self.box_length + np.stack([x, y], axis=1)
-
-            overlap_valid_for_r2 = np.ones_like(overlap_valid_for_r1, dtype=bool)
-
-            # Go over all of the regions and check if there is already a rectangle
-            # that is covered by it and that is too small to allow an overlap
-            for box_idx, box_id, region_loc, region_x, region_y in zip(b, b_ids, region_locs, x, y):
-
-                # If this region is already valid for R1 then it does not have to be valid for R2
-                if overlap_valid_for_r1[box_idx, region_x, region_y]:
-                    continue
-
-                # Compute (left, top) and (right, bottom) coordinates of region
-                l_region, t_region = region_loc
-                r_region = l_region + rect_size[0]
-                b_region = t_region + rect_size[1]
-
-                # Go over all the contained rectangles of the box
-                for rect_id in box2rects[box_id]:
-
-                    # If the area of R2 is not larger than the one of R1
-                    # then R2 has nothing to say
-                    r2_area = self.areas[rect_id]
-                    if r2_area <= r1_area:
-                        continue
-
-                    # Compute (left, top) and (right, bottom) coordinates of the rectangle
-                    rect_x, rect_y = locations[rect_id]
-                    rect_w, rect_h = self.sizes[rect_id]
-                    if rotated[rect_id]:
-                        rect_w, rect_h = rect_h, rect_w
-
-                    l_rect, t_rect = rect_x, rect_y
-                    r_rect, b_rect = l_rect + rect_w, t_rect + rect_h
-
-                    # Compute overlap area of region and the respective rectangle
-                    x_overlap = max(r_rect - l_region, 0) - max(l_rect - l_region, 0) - max(r_rect - r_region, 0) + max(l_rect - r_region, 0)
-                    y_overlap = max(b_rect - t_region, 0) - max(t_rect - t_region, 0) - max(b_rect - b_region, 0) + max(t_rect - b_region, 0)
-
-                    overlap_area = x_overlap * y_overlap
-
-                    # Invalidate the region if it violates the allowed overlap for R2
-                    if overlap_area / r2_area > self.allowed_overlap:
-                        overlap_valid_for_r2[box_idx, region_x, region_y] = False
-
-            # Region is valid if it valid for R1 or for R2
-            b, x, y = np.where(np.logical_or(overlap_valid_for_r1, overlap_valid_for_r2))
-
-        # Consider only one placement per box
-        b_cmp = b.copy()
-        b_cmp[0] = -1
-        b_cmp[1:] = b[:-1]
-        first_valid_placement = b_cmp < b
-        b, x, y, = b[first_valid_placement], x[first_valid_placement], y[first_valid_placement]
-
-        # Convert into location data
-        b_id = selected_box_ids[b]
-        b_loc = box_coords[b_id] * self.box_length
-        locs = b_loc + np.stack([x, y], axis=1)
-
-        return locs, b
-
 
 
 class RectanglePackingProblemGreedyLargestFirstStrategy(RectanglePackingProblem, ConstructionProblem):

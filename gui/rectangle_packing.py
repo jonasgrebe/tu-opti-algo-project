@@ -10,10 +10,11 @@ from algos import local_search, greedy_search
 from gui import BaseGUI
 from problems.rectangle_packing.problem import (
     RectanglePackingSolution,
+    RectanglePackingSolutionGeometryBased,
+    RectanglePackingSolutionOverlap,
     RectanglePackingProblemGeometryBased,
     RectanglePackingProblemRuleBased,
     RectanglePackingProblemOverlap,
-    RectanglePackingSolutionGeometryBased,
     RectanglePackingProblemGreedyLargestFirstStrategy,
     RectanglePackingProblemGreedySmallestFirstStrategy
 )
@@ -142,7 +143,6 @@ class RectanglePackingGUI(BaseGUI):
         )
 
         # Problem Config Menu
-
         self.problem_config_menu = pygame_menu.Menu(
             width=self.screen.get_width(),
             height=self.screen.get_height(),
@@ -695,7 +695,7 @@ class RectanglePackingGUI(BaseGUI):
 
     def set_and_animate_solution(self, sol: RectanglePackingSolution):
         # Identify modified rect and highlight it
-        if isinstance(sol, RectanglePackingSolutionGeometryBased) and sol.move_pending:
+        if isinstance(sol, (RectanglePackingSolutionGeometryBased, RectanglePackingSolutionOverlap)) and sol.move_pending:
             changed_rect_idx = sol.pending_move_params[0]
             self.highlighted_rects[changed_rect_idx] = True
         else:
@@ -703,9 +703,11 @@ class RectanglePackingGUI(BaseGUI):
                    (sol.rotations != self.current_sol.rotations)
             self.highlighted_rects[:] = diff
 
+        print(type(sol), sol.move_pending)
+
         time.sleep(self.anim_sleep)
 
-        if isinstance(sol, RectanglePackingSolutionGeometryBased):
+        if isinstance(sol, (RectanglePackingSolutionGeometryBased, RectanglePackingSolutionOverlap)):
             sol.apply_pending_move()
 
         # Apply new solution
@@ -767,7 +769,7 @@ class RectanglePackingGUI(BaseGUI):
                         rotated = self.selection_rotated != new_solution.rotations[self.selected_rect_idx]
                         new_solution.move_rect(self.selected_rect_idx, np.array([x, y]), rotated)
                         if self.problem.is_feasible(new_solution):
-                            if isinstance(new_solution, RectanglePackingSolutionGeometryBased):
+                            if isinstance(new_solution, (RectanglePackingSolutionGeometryBased, RectanglePackingProblemOverlap)):
                                 new_solution.apply_pending_move()
                             self.set_current_solution(new_solution)
                             self.selected_rect_idx = None
