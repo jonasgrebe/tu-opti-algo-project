@@ -434,16 +434,16 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
                     solutions += [new_solution]
 
             # print("generating %d neighbors took %.3f s" % (len(solutions), time.time() - t))
-
             yield solutions
+
 
     def __place_with_overlap(self, rect_size, boxes_grid, selected_box_ids, rectangle_fields, box2rects, box_coords):
 
         if self.allowed_overlap == 0:
+            #  handle the simple case (can also be handles with the 'else' case but probably takes more time)
             regions_to_place = np.lib.stride_tricks.sliding_window_view(boxes_grid[selected_box_ids], rect_size, axis=(1, 2))
             b, x, y = np.where(~np.any(regions_to_place, axis=(3, 4)))
         else:
-            assert self.allowed_overlap > 0 and self.allowed_overlap <= 1
 
             # -------- quick filter for rectangles in the selected boxes -------
             #contained_rectangles = []
@@ -464,15 +464,20 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
             # (b, x, y, rects)
             b, x, y, r = np.where(r_overlaps >= 0)
 
+            # get areas of involved rectangles
             r1_area = np.prod(rect_size)
             r2_areas = self.areas[r]
 
+            # focus on the pairwise maxima and compute ratios of overlaps
             max_areas = np.maximum(r1_area, r2_areas)
             overlap_ratios = np.divide(r_overlaps.reshape(1, -1), max_areas)
 
+            # is the overlap not exceeding the allowed overlap?
             valid = overlap_ratios <= self.allowed_overlap
+            # reshape to the convenient (b, x, y, r) shape
             valid = valid.reshape(r_overlaps.shape)
 
+            # all (b, x, y) triplets are valid for which all r values are True (no rectangle invalidates this placement)
             b, x, y = np.where(np.all(valid, axis=3))
 
             #m = overlap_ratios.reshape(r_overlaps.shape)[b, x, y].max()
