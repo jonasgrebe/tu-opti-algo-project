@@ -320,7 +320,6 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
         self.allowed_overlap = 0.0  # 1 = rects are allowed to overlap completely, 0 = no overlap allowed
         self.penalty_factor = 0.0
 
-
     def objective_function(self, sol: RectanglePackingSolutionOverlap):
         """Returns the number of boxes occupied in the current solution. Function symbol f.
         Assumes the solution to be feasible!"""
@@ -339,32 +338,10 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
 
     def heuristic(self, sol: RectanglePackingSolutionOverlap):
         """Assumes the solution to be feasible!"""
-        return self.__rect_overlap_heuristic(sol) + self.penalty(sol)
+        return self.__box_occupancy_heuristic(sol) + self.penalty(sol)
 
     def penalty(self, sol: RectanglePackingSolutionOverlap):
        return np.sum(sol.boxes_grid[sol.boxes_grid > 1] - 1) * self.penalty_factor
-
-    def __rect_overlap_heuristic(self, sol: RectanglePackingSolutionGeometryBased):
-        """Test"""
-        if sol.move_pending:
-
-            rect_idx, target_pos, rotated = sol.pending_move_params
-            orig_pos = sol.locations[rect_idx]
-            sol.apply_pending_move()
-
-            boxes_grid = sol.boxes_grid.copy()
-
-            sol.move_rect(rect_idx, orig_pos, rotated)
-            sol.apply_pending_move()
-            sol.move_rect(rect_idx, target_pos, rotated)
-        else:
-            boxes_grid = sol.boxes_grid
-
-        box_capacity = self.box_length ** 2
-        box_sum = (boxes_grid > 0).sum(axis=(1, 2))
-
-        cost = 1 + 0.9 * (box_sum[box_sum > 0] / box_capacity - 1) ** 3
-        return np.sum(cost)
 
     def __box_occupancy_heuristic(self, sol: RectanglePackingSolutionOverlap):
         """Penalizes comparably low occupied boxes more."""
@@ -438,8 +415,7 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
 
             for rotate in [False, True]:
                 # Identify all locations which are allowed for placement
-                size = self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1]
-                relevant_locs = self.__place_with_overlap(rect_size=size,
+                relevant_locs = self.__place_with_overlap(rect_size=self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1],
                                               boxes_grid=solution.boxes_grid,
                                               selected_box_ids=selected_box_ids,
                                               box_coords=solution.box_coords,
@@ -499,9 +475,8 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
 
             b, x, y = np.where(np.all(valid, axis=3))
 
-            m = overlap_ratios.reshape(r_overlaps.shape)[b, x, y].max()
-            print("\nPLACE:", overlap_ratios.reshape(r_overlaps.shape)[b, x, y].max(), self.allowed_overlap)
-
+            #m = overlap_ratios.reshape(r_overlaps.shape)[b, x, y].max()
+            #print("\nPLACE:", overlap_ratios.reshape(r_overlaps.shape)[b, x, y].max(), self.allowed_overlap)
 
         if len(b) == 0:
             return []
@@ -567,13 +542,11 @@ class RectanglePackingProblemGreedyLargestFirstStrategy(RectanglePackingProblem,
     def objective_function(self, sol: RectanglePackingSolutionRuleBased):
         # if not sol.placed:
         #    self.put_all_rects(sol)
-
         return np.sum(sol.box_rect_cnts > 0)
 
     def heuristic(self, sol: RectanglePackingSolutionRuleBased):
         # if not sol.placed:
         #    self.put_all_rects(sol)
-
         box_occupancies = sol.box_occupancies
         box_capacity = self.box_length ** 2
         cost = 1 + 0.9 * (box_occupancies[box_occupancies > 0] / box_capacity - 1) ** 3
@@ -678,9 +651,6 @@ class RectanglePackingProblemGreedySmallestFirstStrategy(RectanglePackingProblem
         ordered_by_occupancy = solution.box_occupancies.argsort()[::-1]
 
         # ---- Determine a good rect selection order ----
-        remaining_rect_ids = solution.get_remaining_elements()
-        print("remaining ids:", remaining_rect_ids)
-
         remaining_rect_ids = solution.get_remaining_elements()
 
         # strategy: take largest rectangle first
