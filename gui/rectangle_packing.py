@@ -873,8 +873,14 @@ class RectanglePackingGUI(BaseGUI):
         for (bf, xf, yf) in zip(b, x, y):
 
             bfx, bfy = self.current_sol.box_coords[bf]
+            overlaps =  self.current_sol.boxes_grid[bf, xf, yf] - 1
 
-            self.draw_rect(bfx * l + xf, bfy * l + yf, 1, 1, color=self.colors["overlap"])
+            color = self.colors['overlap'].copy()
+            color[0] += overlaps * 40
+            color[0] = min(color[0], 255)
+
+
+            self.draw_rect(bfx * l + xf, bfy * l + yf, 1, 1, color=color)
 
 
     def get_visible_boxes(self, view_top_left, view_bottom_right):
