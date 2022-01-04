@@ -875,10 +875,11 @@ class RectanglePackingGUI(BaseGUI):
             bfx, bfy = self.current_sol.box_coords[bf]
             overlaps =  self.current_sol.boxes_grid[bf, xf, yf] - 1
 
-            color = self.colors['overlap'].copy()
-            color[0] += overlaps * 40
-            color[0] = min(color[0], 255)
+            min_color = self.colors['min_overlap'].copy()
+            max_color = self.colors['max_overlap']
 
+            overlaps = min(overlaps, 7)
+            color = [int(min + (overlaps / 7) * (max - min)) for min, max in zip(min_color, max_color)]
 
             self.draw_rect(bfx * l + xf, bfy * l + yf, 1, 1, color=color)
 
