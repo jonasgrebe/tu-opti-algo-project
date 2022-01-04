@@ -298,9 +298,9 @@ class RectanglePackingSolutionOverlap(RectanglePackingSolution):
         self.rotations[rect_idx] = rotated
         self.is_put[rect_idx] = True
 
-        self.rectangle_fields[rect_idx, :, :] = 0
+        self.rectangle_fields[box_idx, rect_idx, :, :] = 0
         self.rectangle_fields[box_idx, rect_idx, x:x + w, y:y + h] = 1
-
+        
 
     def remove_rect(self, rect_idx):
         assert self.is_put[rect_idx]
@@ -329,6 +329,7 @@ class RectanglePackingSolutionOverlap(RectanglePackingSolution):
 
     def move_rect(self, rect_idx, target_pos, rotated):
         """Assumes that this action leads to a feasible solution."""
+
         if self.move_pending:
             raise ValueError("Cannot add another pending move if there is already one.")
         self.move_pending = True

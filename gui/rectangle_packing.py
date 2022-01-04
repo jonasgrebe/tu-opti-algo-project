@@ -703,8 +703,6 @@ class RectanglePackingGUI(BaseGUI):
                    (sol.rotations != self.current_sol.rotations)
             self.highlighted_rects[:] = diff
 
-        print(type(sol), sol.move_pending)
-
         time.sleep(self.anim_sleep)
 
         if isinstance(sol, (RectanglePackingSolutionGeometryBased, RectanglePackingSolutionOverlap)):
