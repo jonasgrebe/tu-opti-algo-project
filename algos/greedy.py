@@ -13,8 +13,11 @@ def greedy_search(problem: ConstructionProblem, gui: BaseGUI = None):  # TODO: r
     # Step 2: Generate the candidate elements
     elements = problem.get_elements(partial_solution)
     elements = sorted(elements, key=problem.costs)
+    step = 0
     while not partial_solution.is_complete():
         e = elements.pop(0)
+        step += 1
+        print(f"\rStep: {step} / Remaining Elements: {len(elements)} - Current Element: {e}", end="")
 
         # Step 3: Check union for independence
         if problem.is_independent(partial_solution, e):
