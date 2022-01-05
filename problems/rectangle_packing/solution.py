@@ -300,7 +300,7 @@ class RectanglePackingSolutionOverlap(RectanglePackingSolution):
 
         self.rectangle_fields[box_idx, rect_idx, :, :] = 0
         self.rectangle_fields[box_idx, rect_idx, x:x + w, y:y + h] = 1
-        
+
 
     def remove_rect(self, rect_idx):
         assert self.is_put[rect_idx]
@@ -371,3 +371,7 @@ class RectanglePackingSolutionGreedy(RectanglePackingSolution):
 
     def get_remaining_elements(self):
         return np.where(~self.is_put)[0]
+
+    def add_element(self, e):
+        rect_idx, target_pos, rotated = e
+        self.put_rect(rect_idx, target_pos, rotated)

@@ -15,8 +15,9 @@ from problems.rectangle_packing.problem import (
     RectanglePackingProblemGeometryBased,
     RectanglePackingProblemRuleBased,
     RectanglePackingProblemOverlap,
-    RectanglePackingProblemGreedyLargestFirstStrategy,
-    RectanglePackingProblemGreedySmallestFirstStrategy
+    RectanglePackingProblemGreedyStrategy,
+    RectanglePackingProblemGreedySmallestPositionStrategy,
+    RectanglePackingProblemGreedyLargestAreaStrategy
 )
 
 ZOOM_STEP_FACTOR = 1.1
@@ -34,8 +35,8 @@ class RectanglePackingGUI(BaseGUI):
             'rectangle_packing_geometry_based': RectanglePackingProblemGeometryBased,
             'rectangle_packing_rule_based': RectanglePackingProblemRuleBased,
             'rectangle_packing_overlap': RectanglePackingProblemOverlap,
-            'rectangle_packing_greedy_largest_first': RectanglePackingProblemGreedyLargestFirstStrategy,
-            'rectangle_packing_greedy_smallest_first': RectanglePackingProblemGreedySmallestFirstStrategy
+            'rectangle_packing_greedy_smallest_position': RectanglePackingProblemGreedySmallestPositionStrategy,
+            'rectangle_packing_greedy_largest_area': RectanglePackingProblemGreedyLargestAreaStrategy
         }
         self.init_sol = None
 
@@ -453,8 +454,8 @@ class RectanglePackingGUI(BaseGUI):
         dropselect_selection_strategy = self.main_menu.add.dropselect(
             title='',
             items=[
-                ('Largest First', 'rectangle_packing_greedy_largest_first'),
-                ('Smallest First', 'rectangle_packing_greedy_smallest_first'),
+                ('Smallest Position', 'rectangle_packing_greedy_smallest_position'),
+                ('Largest Area', 'rectangle_packing_greedy_largest_area'),
             ],
             dropselect_id='selection_strategy',
             onchange=dropselect_selection_strategy_onchange,
@@ -612,8 +613,7 @@ class RectanglePackingGUI(BaseGUI):
     def __setup_new_problem(self):
         self.problem = self.problem_types[self.problem_type_name](**self.problem_config)
 
-        if isinstance(self.problem, (
-                RectanglePackingProblemGreedyLargestFirstStrategy, RectanglePackingProblemGreedySmallestFirstStrategy)):
+        if isinstance(self.problem, RectanglePackingProblemGreedyStrategy):
             sol = self.problem.get_empty_solution()
         else:
             sol = self.problem.get_arbitrary_solution()
