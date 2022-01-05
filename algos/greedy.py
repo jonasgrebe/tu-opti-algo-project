@@ -36,23 +36,6 @@ def greedy_search(problem: ConstructionProblem, gui: BaseGUI = None):  # TODO: r
             else:
                 break
 
-    # step = 0
-    # while not partial_solution.is_complete():
-    #
-    #     # objective_value = problem.objective_function(partial_solution)
-    #     #heuristic_value = problem.heuristic(partial_solution)
-    #     #print("\rStep: %d - Objective value: %.2f - Heuristic value: %.2f"
-    #     #      % (step, objective_value, heuristic_value), end="")
-    #
-    #     partial_solution = get_best_next_element(problem, partial_solution)
-    #     step += 1
-    #
-    #     # Step 3: for each e in elements
-    #     # if problem.is_independent(x.union({e})):
-    #     #    x.add(e)
-    #
-    #
-
     # tell gui that search is over
     if gui is not None:
         gui.stop_search()
@@ -61,7 +44,7 @@ def greedy_search(problem: ConstructionProblem, gui: BaseGUI = None):  # TODO: r
 
     return partial_solution
 
-
+# Deprecated
 def get_best_next_element(problem, partial_solution):
     expansion = problem.get_expansion(partial_solution)
     expansion_values = [problem.heuristic(expanded_solution) for expanded_solution in expansion]
