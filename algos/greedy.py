@@ -13,22 +13,29 @@ def greedy_search(problem: ConstructionProblem, gui: BaseGUI = None):  # TODO: r
     # Step 2: Generate the candidate elements
     elements = problem.get_elements(partial_solution)
     elements = sorted(elements, key=problem.costs)
+    #elements = np.array(elements, dtype=object)
+
     step = 0
     while not partial_solution.is_complete():
+        #e, elements = elements[0], elements[1:]
         e = elements.pop(0)
+
         step += 1
         print(f"\rStep: {step} / Remaining Elements: {len(elements)} - Current Element: {e}", end="")
 
         # Step 3: Check union for independence
         if problem.is_independent(partial_solution, e):
-            # Step 3.1: If independent, then add element to partial solution
+            # if independent, then add element to partial solution
             partial_solution.add_element(e)
-            elements = problem.filter_elements(elements, e)
 
-        # If search was stopped, already stop here without animation
+            if len(elements) > 0:
+                elements = problem.filter_elements(partial_solution, elements, e)
         else:
+            # already break here, if search has paused/stopped
             if gui is not None and not gui.is_searching:
                 break
+
+            # if not independent, continue with next element
             continue
 
         # Step 4: Animation

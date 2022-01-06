@@ -579,8 +579,39 @@ class RectanglePackingProblemGreedyStrategy(RectanglePackingProblem, Constructio
         print(f"[ELEMENTS] Generated {len(elements)} elements.")
         return elements
 
-    def filter_elements(self, elements, e):
+    def filter_elements(self, sol, elements, e):
         return list(filter(lambda x: x[0] != e[0], elements))
+
+    def filter_elements_wiht_numpy(self, sol, elements, e):
+        elements = elements[np.where(elements[:, 0] != e[0])] # list(filter(lambda x: x[0] != e[0], elements))
+
+        e_rect_idx, e_pos, e_rotated = e
+        e_w, e_h = self.sizes[e_rect_idx]
+        if e_rotated:
+            e_w, e_h = e_h, e_w
+
+        e_left, e_right = e_pos[0], e_pos[0] + e_w
+        e_top, e_bottom = e_pos[1], e_pos[1] + e_h
+
+        element_sizes = self.sizes[elements[:, 0].astype(int)]
+        element_rotated = elements[:, 2].astype(bool)
+        element_sizes[element_rotated] = element_sizes[element_rotated][:, ::-1]
+
+        element_w, element_h = element_sizes[:, 0], element_sizes[:, 1]
+
+        element_pos = np.vstack(elements[:, 1])
+        element_x, element_y = element_pos[:, 0], element_pos[:, 1]
+
+        element_left, element_right = element_x, element_x + element_w
+        element_top, element_bottom = element_y, element_y + element_h
+
+        overlapping_with_e = np.logical_and(element_left < element_right, e_right > element_left)
+        overlapping_with_e = np.logical_and(overlapping_with_e, e_top > element_bottom)
+        overlapping_with_e = np.logical_and(overlapping_with_e, e_bottom < element_top)
+
+        elements = elements[~overlapping_with_e]
+
+        return elements
 
     def is_independent(self, sol, e):
         rect_idx, target_pos, rotated = e
@@ -675,6 +706,7 @@ class RectanglePackingProblemGreedyLargestAreaStrategy(RectanglePackingProblemGr
     def costs(self, e):
         rect_idx, _, _ = e
         return - np.prod(self.sizes[rect_idx])
+
 
 def occupancy_heuristic(sol: RectanglePackingSolution):
     box_occupancies = sol.box_occupancies
