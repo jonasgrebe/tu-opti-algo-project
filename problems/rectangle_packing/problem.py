@@ -339,10 +339,18 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
 
     def heuristic(self, sol: RectanglePackingSolutionOverlap):
         """Assumes the solution to be feasible!"""
-        return self.__box_occupancy_heuristic(sol) + self.penalty(sol)
+        return self.__position_heuristic(sol) + self.penalty(sol)
 
     def penalty(self, sol: RectanglePackingSolutionOverlap):
        return np.sum(sol.boxes_grid[sol.boxes_grid > 1] - 1) * self.penalty_factor
+
+    def __position_heuristic(self, sol: RectanglePackingSolutionOverlap):
+        pos_sum = sol.locations.sum()
+        if sol.move_pending:
+            rect_idx, target_pos, _ = sol.pending_move_params
+            source_pos = sol.locations[rect_idx]
+            pos_sum += target_pos.sum() - source_pos.sum()
+        return pos_sum
 
     def __box_occupancy_heuristic(self, sol: RectanglePackingSolutionOverlap):
         """Penalizes comparably low occupied boxes more."""
@@ -401,16 +409,15 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
 
         # ---- Preprocessing: Determine a good rect selection order ----
         rect_ids = self.get_rect_selection_order(solution.box_occupancies, solution.box2rects, occupancy_threshold=1.0, keep_top_dogs=True)
+        print("RECT_IDS", len(rect_ids))
 
         # ---- Check placements using sliding window approach ----
         for rect_idx in rect_ids:
             # Select the n most promising boxes
             box_capacity = self.box_length ** 2
             max_occupancy = box_capacity - self.areas[rect_idx] * (1 - self.allowed_overlap)
-            promising_boxes = solution.box_occupancies <= max_occupancy  # drop boxes which are too full
-            sorted_box_ids = ordered_by_occupancy
-            selected_box_ids = sorted_box_ids[promising_boxes[ordered_by_occupancy]]
-            selected_box_ids = selected_box_ids[:MAX_CONSIDERED_BOXES]  # take at most a certain number of boxes
+            selected_box_ids = ordered_by_occupancy
+            #selected_box_ids = selected_box_ids[:MAX_CONSIDERED_BOXES]  # take at most a certain number of boxes
 
             solutions = []
 
@@ -425,7 +432,7 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
                                               )
 
                 # Prune abundant options
-                relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
+                #relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
 
                 # Generate new solutions
                 for loc in relevant_locs:
