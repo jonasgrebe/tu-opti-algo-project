@@ -17,7 +17,9 @@ from problems.rectangle_packing.problem import (
     RectanglePackingProblemOverlap,
     RectanglePackingProblemGreedyStrategy,
     RectanglePackingProblemGreedySmallestPositionStrategy,
-    RectanglePackingProblemGreedyLargestAreaStrategy
+    RectanglePackingProblemGreedyLargestAreaStrategy,
+    RectanglePackingProblemGreedyLargestAreaSmallestPositionStrategy,
+    RectanglePackingProblemGreedyUniformStrategy
 )
 
 ZOOM_STEP_FACTOR = 1.1
@@ -36,7 +38,9 @@ class RectanglePackingGUI(BaseGUI):
             'rectangle_packing_rule_based': RectanglePackingProblemRuleBased,
             'rectangle_packing_overlap': RectanglePackingProblemOverlap,
             'rectangle_packing_greedy_smallest_position': RectanglePackingProblemGreedySmallestPositionStrategy,
-            'rectangle_packing_greedy_largest_area': RectanglePackingProblemGreedyLargestAreaStrategy
+            'rectangle_packing_greedy_largest_area': RectanglePackingProblemGreedyLargestAreaStrategy,
+            'rectangle_packing_greedy_largest_area_smallest_position': RectanglePackingProblemGreedyLargestAreaSmallestPositionStrategy,
+            'rectangle_packing_greedy_uniform': RectanglePackingProblemGreedyUniformStrategy
         }
         self.init_sol = None
 
@@ -456,6 +460,8 @@ class RectanglePackingGUI(BaseGUI):
             items=[
                 ('Smallest Position', 'rectangle_packing_greedy_smallest_position'),
                 ('Largest Area', 'rectangle_packing_greedy_largest_area'),
+                ('Both', 'rectangle_packing_greedy_largest_area_smallest_position'),
+                ('Uniform', 'rectangle_packing_greedy_uniform')
             ],
             dropselect_id='selection_strategy',
             onchange=dropselect_selection_strategy_onchange,

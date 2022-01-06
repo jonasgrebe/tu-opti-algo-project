@@ -576,7 +576,9 @@ class RectanglePackingProblemGreedyStrategy(RectanglePackingProblem, Constructio
                 # add triplets (rect_idx, location, rotation) to elements
                 elements.extend([(rect_idx, loc, rotate) for loc in relevant_locs])
 
-        print(f"[ELEMENTS] Generated {len(elements)} elements.")
+        # shuffle to not influence the algorithm by the generation order of placement
+        np.random.shuffle(elements)
+        print(f"[GREEDY] Generated {len(elements)} elements.")
         return elements
 
     def filter_elements(self, sol, elements, e):
@@ -706,6 +708,30 @@ class RectanglePackingProblemGreedyLargestAreaStrategy(RectanglePackingProblemGr
     def costs(self, e):
         rect_idx, _, _ = e
         return - np.prod(self.sizes[rect_idx])
+
+
+def occupancy_heuristic(sol: RectanglePackingSolution):
+    box_occupancies = sol.box_occupancies
+    box_capacity = sol.problem.box_length ** 2
+    cost = 1 + 0.9 * (box_occupancies[box_occupancies > 0] / box_capacity - 1) ** 3
+    return np.sum(cost)
+
+
+class RectanglePackingProblemGreedyLargestAreaSmallestPositionStrategy(RectanglePackingProblemGreedyStrategy):
+    def __init__(self, *args, **kwargs):
+        super(RectanglePackingProblemGreedyLargestAreaSmallestPositionStrategy, self).__init__(*args, **kwargs)
+
+    def costs(self, e):
+        rect_idx, target_pos, _ = e
+        return - np.prod(self.sizes[rect_idx]) + sum(target_pos)
+
+
+class RectanglePackingProblemGreedyUniformStrategy(RectanglePackingProblemGreedyStrategy):
+    def __init__(self, *args, **kwargs):
+        super(RectanglePackingProblemGreedyUniformStrategy, self).__init__(*args, **kwargs)
+
+    def costs(self, e):
+        return 0
 
 
 def occupancy_heuristic(sol: RectanglePackingSolution):
