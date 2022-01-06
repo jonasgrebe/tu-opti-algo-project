@@ -346,11 +346,18 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
 
     def __position_heuristic(self, sol: RectanglePackingSolutionOverlap):
         pos_sum = sol.locations.sum()
+        box_pos_sum = (sol.locations % self.box_length).sum()
         if sol.move_pending:
             rect_idx, target_pos, _ = sol.pending_move_params
+            target_box_pos = target_pos % self.box_length
+
             source_pos = sol.locations[rect_idx]
+            source_box_pos = source_pos % self.box_length
+
             pos_sum += target_pos.sum() - source_pos.sum()
-        return pos_sum
+            box_pos_sum += target_box_pos.sum() - source_box_pos.sum()
+
+        return pos_sum + box_pos_sum
 
     def __box_occupancy_heuristic(self, sol: RectanglePackingSolutionOverlap):
         """Penalizes comparably low occupied boxes more."""
