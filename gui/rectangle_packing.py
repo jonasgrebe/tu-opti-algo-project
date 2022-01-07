@@ -449,7 +449,7 @@ class RectanglePackingGUI(BaseGUI):
             ],
             dropselect_id='heuristic',
             onchange=dropselect_heuristic_onchange,
-            default=2,
+            default=1,
             padding=0,
             placeholder='Select',
             selection_box_height=5,

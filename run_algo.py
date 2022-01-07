@@ -5,6 +5,6 @@ from problems.rectangle_packing.problem import RectanglePackingProblemGreedy
 
 
 # For performance test
-problem = RectanglePackingProblemGeometryBased(8, 100, 1, 7, 1, 7)
-solution = greedy_search(problem)
+problem = RectanglePackingProblemGeometryBased(8, 1000, 1, 7, 1, 7)
+solution = local_search(problem)
 print("objective value:", problem.objective_function(solution))

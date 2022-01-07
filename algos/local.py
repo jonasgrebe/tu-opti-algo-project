@@ -107,6 +107,7 @@ def get_next_better_neighbor(problem: NeighborhoodProblem, solution):
             return neighbors[best_neighbor_idx]
 
     if not problem.is_feasible(solution):
+        print("\n NOT FEASIBLE")
         return best_neighbor_so_far
 
         # for neighbor in neighbors:

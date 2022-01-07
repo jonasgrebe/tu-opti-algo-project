@@ -27,7 +27,7 @@ class RectanglePackingProblem(OptProblem, ABC):
 
         self.__generate(box_length, num_rects, w_min, w_max, h_min, h_max)
 
-        self.__heuristic = self.__small_box_position_heuristic
+        self.__heuristic = self.__box_occupancy_heuristic
 
 
     def objective_function(self, sol: RectanglePackingSolution):
@@ -230,7 +230,7 @@ class RectanglePackingProblem(OptProblem, ABC):
             pos_sum += target_pos.sum() - source_pos.sum()
             box_pos_sum += target_box_pos.sum() - source_box_pos.sum()
 
-        cost = box_pos_sum + 1e-2 * pos_sum
+        cost = self.box_length * self.num_rects * box_pos_sum + pos_sum
         return cost
 
 
@@ -295,7 +295,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
 
         return h + p
 
-    def place(self, rect_size, boxes_grid, selected_box_ids, rectangle_fields, box2rects, box_coords, one_per_box=True, allowed_overlap=0.0):
+    def place(self, rect_size, boxes_grid, selected_box_ids, rectangle_fields=None, box2rects=None, box_coords=None, one_per_box=True, allowed_overlap=0.0):
 
         if allowed_overlap == 0:
             #  handle the simple case (can also be handles with the 'else' case but probably takes more time)
@@ -415,8 +415,8 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
                 relevant_locs, _ = self.place(rect_size=self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1],
                                               boxes_grid=sol.boxes_grid,
                                               selected_box_ids=selected_box_ids,
-                                              rectangle_fields=sol.rectangle_fields,
-                                              box2rects=sol.box2rects,
+                                              rectangle_fields=sol.rectangle_fields if self.allowed_overlap > 0 else None,
+                                              box2rects=sol.box2rects if self.allowed_overlap > 0 else None,
                                               box_coords=sol.box_coords,
                                               allowed_overlap=self.allowed_overlap)
 
