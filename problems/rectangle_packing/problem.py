@@ -23,6 +23,22 @@ class RectanglePackingProblem(OptProblem, ABC):
 
         self.__generate(box_length, num_rects, w_min, w_max, h_min, h_max)
 
+    def get_instance_params(self):
+        return (self.sizes,)
+
+    def set_instance_params(self, sizes):
+        self.sizes = sizes
+
+        self.areas = self.sizes[:, 0] * self.sizes[:, 1]
+        oversize = self.box_length // 2
+        self.top_dogs = np.all(self.sizes > oversize, axis=1)  # "Platzhirsche"
+
+        # Compute a lower bound for the minimum
+        # "top dog" := a rectangle that requires an own box (no two top dogs fit together into one box)
+        num_top_dogs = np.sum(self.top_dogs)
+        min_box_required = np.ceil(np.sum(self.sizes[:, 0] * self.sizes[:, 1]) / self.box_length ** 2)
+        self.minimum_lower_bound = max(min_box_required, num_top_dogs)
+
     def __generate(self, box_length, num_rects, w_min, w_max, h_min, h_max):
         """Generates a new problem instance.
 
@@ -40,21 +56,15 @@ class RectanglePackingProblem(OptProblem, ABC):
         # Generate rectangles with uniformly random side lengths (width and height)
         widths = np.random.randint(w_min, w_max + 1, size=num_rects)
         heights = np.random.randint(h_min, h_max + 1, size=num_rects)
-        self.sizes = np.stack([widths, heights], axis=1)
-        self.areas = self.sizes[:, 0] * self.sizes[:, 1]
-        oversize = self.box_length // 2
-        self.top_dogs = np.all(self.sizes > oversize, axis=1)  # "Platzhirsche"
+        sizes = np.stack([widths, heights], axis=1)
 
-        # Compute a lower bound for the minimum
-        # "top dog" := a rectangle that requires an own box (no two top dogs fit together into one box)
-        num_top_dogs = np.sum(self.top_dogs)
-        min_box_required = np.ceil(np.sum(self.sizes[:, 0] * self.sizes[:, 1]) / self.box_length ** 2)
-        self.minimum_lower_bound = max(min_box_required, num_top_dogs)
+        self.set_instance_params(sizes)
 
-    def is_optimal(self, solution: RectanglePackingSolution):
+    def is_optimal(self, sol: RectanglePackingSolution):
         """If True is returned, the solution is optimal
         (otherwise no assertion can be made)."""
-        return self.objective_function(solution) <= self.minimum_lower_bound
+        return sol.is_complete() and self.objective_function(sol) <= self.minimum_lower_bound
+
 
     def place(self, rect_size, boxes_grid, selected_box_ids, box_coords, one_per_box=True):
         regions_to_place = np.lib.stride_tricks.sliding_window_view(boxes_grid[selected_box_ids],
@@ -112,54 +122,72 @@ class RectanglePackingProblem(OptProblem, ABC):
         return np.prod(self.sizes, axis=1)
 
 
-class RectanglePackingProblemGeometryBased(RectanglePackingProblem, NeighborhoodProblem):
-    def __init__(self, *args, **kwargs):
-        super(RectanglePackingProblemGeometryBased, self).__init__(*args, **kwargs)
+    def heuristic(self, sol: RectanglePackingSolution):
+        return self.__box_occupancy_heuristic(sol)
 
-    def objective_function(self, solution: RectanglePackingSolutionGeometryBased):
-        """Returns the number of boxes occupied in the current solution. Function symbol f.
-        Assumes the solution to be feasible!"""
-        if solution.move_pending:
-            box_rect_cnts = solution.box_rect_cnts.copy()
-
-            rect_idx, target_pos, rotated = solution.pending_move_params
-            source_box_idx = solution.get_box_idx_by_rect_id(rect_idx)
-            target_box_idx = solution.get_box_idx_by_pos(target_pos)
-
-            box_rect_cnts[source_box_idx] -= 1
-            box_rect_cnts[target_box_idx] += 1
-        else:
-            box_rect_cnts = solution.box_rect_cnts
-        return np.sum(box_rect_cnts > 0)
-
-    def heuristic(self, solution: RectanglePackingSolutionGeometryBased):
-        """Assumes the solution to be feasible!"""
-        return self.__box_occupancy_heuristic(solution)
-
-    def __rect_cnt_heuristic(self, solution: RectanglePackingSolutionGeometryBased):
+    def __rect_cnt_heuristic(self, sol: RectanglePackingSolution):
         """Depends on rectangle count per box."""
-        if solution.move_pending:
+        if sol.move_pending:
             raise NotImplementedError
-        cost = 1 - 0.5 ** solution.box_rect_cnts
+
+        cost = 1 - 0.5 ** sol.box_rect_cnts
         return np.sum(cost)
 
-    def __box_occupancy_heuristic(self, solution: RectanglePackingSolutionGeometryBased):
+    def __box_occupancy_heuristic(self, sol: RectanglePackingSolution):
         """Penalizes comparably low occupied boxes more."""
-        if solution.move_pending:
-            box_occupancies = solution.box_occupancies.copy()
+        if sol.move_pending:
+            box_occupancies = sol.box_occupancies.copy()
 
-            rect_idx, target_pos, rotated = solution.pending_move_params
-            source_box_idx = solution.get_box_idx_by_rect_id(rect_idx)
-            target_box_idx = solution.get_box_idx_by_pos(target_pos)
+            rect_idx, target_pos, rotated = sol.pending_move_params
+            source_box_idx = sol.get_box_idx_by_rect_id(rect_idx)
+            target_box_idx = sol.get_box_idx_by_pos(target_pos)
 
-            box_occupancies[source_box_idx] -= solution.problem.areas[rect_idx]
-            box_occupancies[target_box_idx] += solution.problem.areas[rect_idx]
+            box_occupancies[source_box_idx] -= sol.problem.areas[rect_idx]
+            box_occupancies[target_box_idx] += sol.problem.areas[rect_idx]
         else:
-            box_occupancies = solution.box_occupancies
+            box_occupancies = sol.box_occupancies
 
         box_capacity = self.box_length ** 2
         cost = 1 + 0.9 * (box_occupancies[box_occupancies > 0] / box_capacity - 1) ** 3
         return np.sum(cost)
+
+    def __small_box_position_heuristic(self, sol: RectanglePackingSolution):
+        pos_sum = sol.locations.sum()
+        box_pos_sum = (sol.locations % self.box_length).sum()
+
+        if sol.move_pending:
+            rect_idx, target_pos, _ = sol.pending_move_params
+            target_box_pos = target_pos % self.box_length
+
+            source_pos = sol.locations[rect_idx]
+            source_box_pos = source_pos % self.box_length
+
+            pos_sum += target_pos.sum() - source_pos.sum()
+            box_pos_sum += target_box_pos.sum() - source_box_pos.sum()
+
+        return pos_sum + box_pos_sum
+
+
+class RectanglePackingProblemGeometryBased(RectanglePackingProblem, NeighborhoodProblem):
+    def __init__(self, *args, **kwargs):
+        super(RectanglePackingProblemGeometryBased, self).__init__(*args, **kwargs)
+
+    def objective_function(self, sol: RectanglePackingSolutionGeometryBased):
+        """Returns the number of boxes occupied in the current sol. Function symbol f.
+        Assumes the solution to be feasible!"""
+        if sol.move_pending:
+            box_rect_cnts = sol.box_rect_cnts.copy()
+
+            rect_idx, target_pos, rotated = sol.pending_move_params
+            source_box_idx = sol.get_box_idx_by_rect_id(rect_idx)
+            target_box_idx = sol.get_box_idx_by_pos(target_pos)
+
+            box_rect_cnts[source_box_idx] -= 1
+            box_rect_cnts[target_box_idx] += 1
+        else:
+            box_rect_cnts = sol.box_rect_cnts
+        return np.sum(box_rect_cnts > 0)
+
 
     def is_feasible(self, sol: RectanglePackingSolutionGeometryBased):
         if sol.move_pending:
@@ -170,7 +198,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
 
             feasible = rects_correctly_placed(sol)
 
-            # Re-construct original solution
+            # Re-construct original sol
             sol.move_rect(rect_idx, orig_pos, rotated)
             sol.apply_pending_move()
             sol.move_rect(rect_idx, target_pos, rotated)
@@ -186,51 +214,51 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         y_locations = np.arange(self.num_rects) // num_cols
         locations = np.stack([x_locations, y_locations], axis=1) * self.box_length
         rotations = np.zeros(self.num_rects, dtype=np.bool)
-        solution = RectanglePackingSolutionGeometryBased(self)
-        solution.set_solution(locations, rotations)
-        return solution
+        sol = RectanglePackingSolutionGeometryBased(self)
+        sol.set_solution(locations, rotations)
+        return sol
 
-    def get_neighborhood(self, solution: RectanglePackingSolutionGeometryBased):
-        return list(itertools.chain(*list(self.get_next_neighbors(solution))))
+    def get_neighborhood(self, sol: RectanglePackingSolutionGeometryBased):
+        return list(itertools.chain(*list(self.get_next_neighbors(sol))))
 
-    def get_next_neighbors(self, solution: RectanglePackingSolutionGeometryBased):
+    def get_next_neighbors(self, sol: RectanglePackingSolutionGeometryBased):
         """Returns all valid placing coordinates for all rectangles."""
-        ordered_by_occupancy = solution.box_occupancies.argsort()[::-1]
+        ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
 
         # ---- Preprocessing: Determine a good rect selection order ----
-        rect_ids = self.get_rect_selection_order(solution.box_occupancies, solution.box2rects)
+        rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects)
 
         # ---- Check placements using sliding window approach ----
         for rect_idx in rect_ids:
             # Select the n most promising boxes
             box_capacity = self.box_length ** 2
             max_occupancy = box_capacity - self.areas[rect_idx]
-            promising_boxes = solution.box_occupancies <= max_occupancy  # drop boxes which are too full
+            promising_boxes = sol.box_occupancies <= max_occupancy  # drop boxes which are too full
             sorted_box_ids = ordered_by_occupancy
             selected_box_ids = sorted_box_ids[promising_boxes[ordered_by_occupancy]]
             selected_box_ids = selected_box_ids[:MAX_CONSIDERED_BOXES]  # take at most a certain number of boxes
 
-            solutions = []
+            sols = []
 
             for rotate in [False, True]:
                 # Identify all locations which are allowed for placement
                 relevant_locs, _ = self.place(rect_size=self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1],
-                                              boxes_grid=solution.boxes_grid,
+                                              boxes_grid=sol.boxes_grid,
                                               selected_box_ids=selected_box_ids,
-                                              box_coords=solution.box_coords)
+                                              box_coords=sol.box_coords)
 
                 # Prune abundant options
                 relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
 
-                # Generate new solutions
+                # Generate new sols
                 for loc in relevant_locs:
-                    new_solution = solution.copy()
-                    new_solution.move_rect(rect_idx, loc, rotate)
-                    # assert self.is_feasible(new_solution)
-                    solutions += [new_solution]
+                    new_sol = sol.copy()
+                    new_sol.move_rect(rect_idx, loc, rotate)
+                    # assert self.is_feasible(new_sol)
+                    sols += [new_sol]
 
-            # print("generating %d neighbors took %.3f s" % (len(solutions), time.time() - t))
-            yield solutions
+            # print("generating %d neighbors took %.3f s" % (len(sols), time.time() - t))
+            yield sols
 
 
 class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProblem):
@@ -263,10 +291,10 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
             yield [new_sol]
 
     def get_arbitrary_solution(self):
-        solution = RectanglePackingSolutionRuleBased(self)
-        solution.reset()
-        solution.rect_order = np.arange(self.num_rects)
-        return solution
+        sol = RectanglePackingSolutionRuleBased(self)
+        sol.reset()
+        sol.rect_order = np.arange(self.num_rects)
+        return sol
 
     def objective_function(self, sol: RectanglePackingSolutionRuleBased):
         if not sol.all_rects_put():
@@ -306,7 +334,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
     def heuristic(self, sol: RectanglePackingSolutionRuleBased):
         if not sol.all_rects_put():
             self.put_all_rects(sol)
-        return occupancy_heuristic(sol)
+        return super().heuristic(sol)
 
     def is_feasible(self, sol: RectanglePackingSolutionRuleBased):
         rect_id_set = set(list(sol.rect_order))
@@ -322,7 +350,7 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
         self.penalty_factor = 0.0
 
     def objective_function(self, sol: RectanglePackingSolutionOverlap):
-        """Returns the number of boxes occupied in the current solution. Function symbol f.
+        """Returns the number of boxes occupied in the current sol. Function symbol f.
         Assumes the solution to be feasible!"""
         if sol.move_pending:
             box_rect_cnts = sol.box_rect_cnts.copy()
@@ -339,43 +367,11 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
 
     def heuristic(self, sol: RectanglePackingSolutionOverlap):
         """Assumes the solution to be feasible!"""
-        return self.__position_heuristic(sol) + self.penalty(sol)
+        return super().heuristic(sol) + self.penalty(sol)
 
     def penalty(self, sol: RectanglePackingSolutionOverlap):
        return np.sum(sol.boxes_grid[sol.boxes_grid > 1] - 1) * self.penalty_factor
 
-    def __position_heuristic(self, sol: RectanglePackingSolutionOverlap):
-        pos_sum = sol.locations.sum()
-        box_pos_sum = (sol.locations % self.box_length).sum()
-        if sol.move_pending:
-            rect_idx, target_pos, _ = sol.pending_move_params
-            target_box_pos = target_pos % self.box_length
-
-            source_pos = sol.locations[rect_idx]
-            source_box_pos = source_pos % self.box_length
-
-            pos_sum += target_pos.sum() - source_pos.sum()
-            box_pos_sum += target_box_pos.sum() - source_box_pos.sum()
-
-        return pos_sum + box_pos_sum
-
-    def __box_occupancy_heuristic(self, sol: RectanglePackingSolutionOverlap):
-        """Penalizes comparably low occupied boxes more."""
-        if sol.move_pending:
-            box_occupancies = sol.box_occupancies.copy()
-
-            rect_idx, target_pos, _ = sol.pending_move_params
-            source_box_idx = sol.get_box_idx_by_rect_id(rect_idx)
-            target_box_idx = sol.get_box_idx_by_pos(target_pos)
-
-            box_occupancies[source_box_idx] -= sol.problem.areas[rect_idx]
-            box_occupancies[target_box_idx] += sol.problem.areas[rect_idx]
-        else:
-            box_occupancies = sol.box_occupancies
-
-        box_capacity = self.box_length ** 2
-        cost = 1 + 0.9 * (box_occupancies[box_occupancies > 0] / box_capacity - 1) ** 3
-        return np.sum(cost)
 
     def is_feasible(self, sol: RectanglePackingSolutionOverlap):
         if sol.move_pending:
@@ -387,7 +383,7 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
 
             feasible = self.__rect_overlap_tolerable(sol) and rects_respect_boxes(sol)
 
-            # Re-construct original solution
+            # Re-construct original sol
             sol.move_rect(rect_idx, orig_pos, rotated)
             sol.apply_pending_move()
             sol.move_rect(rect_idx, target_pos, rotated)
@@ -407,16 +403,15 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
         sol.set_solution(locations, rotations)
         return sol
 
-    def get_neighborhood(self, solution: RectanglePackingSolutionOverlap):
-        return list(itertools.chain(*list(self.get_next_neighbors(solution))))
+    def get_neighborhood(self, sol: RectanglePackingSolutionOverlap):
+        return list(itertools.chain(*list(self.get_next_neighbors(sol))))
 
-    def get_next_neighbors(self, solution: RectanglePackingSolutionOverlap):
+    def get_next_neighbors(self, sol: RectanglePackingSolutionOverlap):
         """Returns all valid placing coordinates for all rectangles."""
-        ordered_by_occupancy = solution.box_occupancies.argsort()[::-1]
-
+        ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
+        
         # ---- Preprocessing: Determine a good rect selection order ----
-        rect_ids = self.get_rect_selection_order(solution.box_occupancies, solution.box2rects, occupancy_threshold=1.0, keep_top_dogs=True)
-        print("RECT_IDS", len(rect_ids))
+        rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=1.0, keep_top_dogs=True)
 
         # ---- Check placements using sliding window approach ----
         for rect_idx in rect_ids:
@@ -426,30 +421,30 @@ class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProble
             selected_box_ids = ordered_by_occupancy
             #selected_box_ids = selected_box_ids[:MAX_CONSIDERED_BOXES]  # take at most a certain number of boxes
 
-            solutions = []
+            sols = []
 
             for rotate in [False, True]:
                 # Identify all locations which are allowed for placement
                 relevant_locs = self.__place_with_overlap(rect_size=self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1],
-                                              boxes_grid=solution.boxes_grid,
+                                              boxes_grid=sol.boxes_grid,
                                               selected_box_ids=selected_box_ids,
-                                              box_coords=solution.box_coords,
-                                              rectangle_fields=solution.rectangle_fields,
-                                              box2rects=solution.box2rects
+                                              box_coords=sol.box_coords,
+                                              rectangle_fields=sol.rectangle_fields,
+                                              box2rects=sol.box2rects
                                               )
 
                 # Prune abundant options
                 #relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
 
-                # Generate new solutions
+                # Generate new sols
                 for loc in relevant_locs:
-                    new_solution = solution.copy()
-                    new_solution.move_rect(rect_idx, loc, rotate)
-                    # assert self.is_feasible(new_solution)
-                    solutions += [new_solution]
+                    new_sol = sol.copy()
+                    new_sol.move_rect(rect_idx, loc, rotate)
+                    # assert self.is_feasible(new_sol)
+                    sols += [new_sol]
 
-            # print("generating %d neighbors took %.3f s" % (len(solutions), time.time() - t))
-            yield solutions
+            # print("generating %d neighbors took %.3f s" % (len(sols), time.time() - t))
+            yield sols
 
 
     def __place_with_overlap(self, rect_size, boxes_grid, selected_box_ids, rectangle_fields, box2rects, box_coords):
@@ -650,21 +645,21 @@ class RectanglePackingProblemGreedyStrategy(RectanglePackingProblem, Constructio
                and np.all(sol.rect_order < self.num_rects)
 
     def get_empty_solution(self):
-        solution = RectanglePackingSolutionGreedy(self)
-        solution.reset()
-        return solution
+        sol = RectanglePackingSolutionGreedy(self)
+        sol.reset()
+        return sol
 
     # Deprecated
-    def get_expansion(self, solution: RectanglePackingSolutionGreedy):
-        return list(itertools.chain(*list(self.get_next_expansions(solution))))
+    def get_expansion(self, sol: RectanglePackingSolutionGreedy):
+        return list(itertools.chain(*list(self.get_next_expansions(sol))))
 
     # Deprecated
-    def get_next_expansions(self, solution: RectanglePackingSolutionGreedy):
-        """Returns expansion (partial solutions obtained by appending an element) of the given (partial) solution."""
-        ordered_by_occupancy = solution.box_occupancies.argsort()[::-1]
+    def get_next_expansions(self, sol: RectanglePackingSolutionGreedy):
+        """Returns expansion (partial sols obtained by appending an element) of the given (partial) sol."""
+        ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
 
         # ---- Determine a good rect selection order ----
-        remaining_rect_ids = solution.get_remaining_elements()
+        remaining_rect_ids = sol.get_remaining_elements()
 
         # strategy: take largest rectangle first
         areas = np.prod(self.sizes[remaining_rect_ids], axis=1)
@@ -673,13 +668,13 @@ class RectanglePackingProblemGreedyStrategy(RectanglePackingProblem, Constructio
         # Select the n most promising boxes
         box_capacity = self.box_length ** 2
         max_occupancy = box_capacity - self.areas[largest_rect_idx]
-        promising_boxes = solution.box_occupancies <= max_occupancy  # drop boxes which are too full
+        promising_boxes = sol.box_occupancies <= max_occupancy  # drop boxes which are too full
 
         sorted_box_ids = ordered_by_occupancy
         selected_box_ids = sorted_box_ids[promising_boxes[ordered_by_occupancy]]
         selected_box_ids = selected_box_ids[:MAX_CONSIDERED_BOXES]  # take at most a certain number of boxes
 
-        solutions = []
+        sols = []
 
         for rotate in [False, True]:
             size = self.sizes[largest_rect_idx]
@@ -688,22 +683,22 @@ class RectanglePackingProblemGreedyStrategy(RectanglePackingProblem, Constructio
 
             # Identify all locations which are allowed for placement
             relevant_locs, _ = self.place(rect_size=size,
-                                          boxes_grid=solution.boxes_grid,
+                                          boxes_grid=sol.boxes_grid,
                                           selected_box_ids=selected_box_ids,
-                                          box_coords=solution.box_coords)
+                                          box_coords=sol.box_coords)
 
             # TODO: Think about this part:
             # Prune abundant options
             relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
 
-            # Generate expanded partial solutions
+            # Generate expanded partial sols
             for loc in relevant_locs:
-                new_solution = solution.copy()
-                new_solution.put_rect(largest_rect_idx, loc, rotate)
-                # assert self.is_feasible(new_solution)
-                solutions += [new_solution]
+                new_sol = sol.copy()
+                new_sol.put_rect(largest_rect_idx, loc, rotate)
+                # assert self.is_feasible(new_sol)
+                sols += [new_sol]
 
-            yield [min(solutions, key=self.heuristic)]
+            yield [min(sols, key=self.heuristic)]
 
 
 class RectanglePackingProblemGreedySmallestPositionStrategy(RectanglePackingProblemGreedyStrategy):
@@ -722,13 +717,6 @@ class RectanglePackingProblemGreedyLargestAreaStrategy(RectanglePackingProblemGr
     def costs(self, e):
         rect_idx, _, _ = e
         return - np.prod(self.sizes[rect_idx])
-
-
-def occupancy_heuristic(sol: RectanglePackingSolution):
-    box_occupancies = sol.box_occupancies
-    box_capacity = sol.problem.box_length ** 2
-    cost = 1 + 0.9 * (box_occupancies[box_occupancies > 0] / box_capacity - 1) ** 3
-    return np.sum(cost)
 
 
 class RectanglePackingProblemGreedyLargestAreaSmallestPositionStrategy(RectanglePackingProblemGreedyStrategy):

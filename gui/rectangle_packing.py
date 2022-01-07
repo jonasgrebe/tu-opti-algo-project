@@ -288,7 +288,7 @@ class RectanglePackingGUI(BaseGUI):
 
         def generate_instance():
             self.stop_search()  # IMPORTANT!
-            self.__setup_new_problem()
+            self.__setup_new_problem(new_instance=True)
 
         btn_generate = self.main_menu.add.button(
             'Generate Instance',
@@ -616,8 +616,15 @@ class RectanglePackingGUI(BaseGUI):
         btn_configure = self.main_menu.get_widget('configure_problem')
         btn_configure.readonly = True
 
-    def __setup_new_problem(self):
+    def __setup_new_problem(self, new_instance=False):
+
+        if not new_instance:
+            instance_params = self.problem.get_instance_params()
+
         self.problem = self.problem_types[self.problem_type_name](**self.problem_config)
+
+        if not new_instance:
+            self.problem.set_instance_params(*instance_params)
 
         if isinstance(self.problem, RectanglePackingProblemGreedyStrategy):
             sol = self.problem.get_empty_solution()
@@ -669,7 +676,7 @@ class RectanglePackingGUI(BaseGUI):
         for k, v in update_dict.items():
             if self.problem_config[k] != v:
                 self.problem_config = problem_config
-                self.__setup_new_problem()
+                self.__setup_new_problem(new_instance=True)
                 return
 
     def resize_window(self, w, h):
@@ -724,7 +731,7 @@ class RectanglePackingGUI(BaseGUI):
     def __run(self):
         self.__init_gui()
         self.__setup_menu()
-        self.__setup_new_problem()
+        self.__setup_new_problem(new_instance=True)
 
         frame = 0
         while self.running:

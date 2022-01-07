@@ -7,6 +7,7 @@ class RectanglePackingSolution(Solution):
     def __init__(self, problem):
         super(RectanglePackingSolution, self).__init__()
 
+        self.move_pending = False
         self.problem = problem
 
         self.locations = None
@@ -161,6 +162,8 @@ class RectanglePackingSolution(Solution):
             ref_copy(self, duplicate)
         return duplicate
 
+    def is_complete(self):
+        return np.all(self.is_put)
 
 def true_copy(from_sol: RectanglePackingSolution, to_sol: RectanglePackingSolution):
     to_sol.locations = from_sol.locations.copy()
@@ -191,7 +194,6 @@ class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
         super(RectanglePackingSolutionGeometryBased, self).__init__(problem)
 
         self.standalone = True  # If False, attributes of this class require deepcopy before any modification
-        self.move_pending = False
         self.pending_move_params = None
 
     def set_solution(self, locations, rotations):
@@ -365,9 +367,6 @@ class RectanglePackingSolutionOverlap(RectanglePackingSolution):
 class RectanglePackingSolutionGreedy(RectanglePackingSolution):
     def __init__(self, problem):
         super(RectanglePackingSolutionGreedy, self).__init__(problem)
-
-    def is_complete(self):
-        return np.all(self.is_put)
 
     def get_remaining_elements(self):
         return np.where(~self.is_put)[0]
