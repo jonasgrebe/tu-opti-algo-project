@@ -52,6 +52,12 @@ class RectanglePackingProblem(OptProblem, ABC):
     def is_relaxation_active(self):
         return False
 
+    def is_relaxation_enabled(self):
+        return False
+
+    def toggle_relaxation(self):
+        pass
+
     def get_instance_params(self):
         return (self.sizes,)
 
@@ -231,24 +237,36 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         self.allowed_overlap = 0.0
         self.penalty_factor = 0.0
 
+        self.relaxation_enabled = False
+
     def update_relaxation(self, step):
+        if not self.relaxation_enabled:
+            return
+
         self.penalty_factor = step ** 3
         self.allowed_overlap = np.exp(-step)
         self.allowed_overlap = round(self.allowed_overlap, 2)
 
-        print("PENALTY_FACTOR:", self.penalty_factor, "OVERLAP:", self.allowed_overlap)
-
     def reset_relaxation(self):
-        self.allowed_overlap = 1.0
         self.penalty_factor = 0.0
+        if self.is_relaxation_enabled():
+            self.allowed_overlap = 1.0
+        else:
+            self.allowed_overlap = 0.0
 
     def is_relaxation_active(self):
-        return self.allowed_overlap > 0
+        return self.relaxation_enabled and self.allowed_overlap > 0
+
+    def is_relaxation_enabled(self):
+        return self.relaxation_enabled
+
+    def toggle_relaxation(self):
+        self.relaxation_enabled = not self.relaxation_enabled
 
     def heuristic(self, sol: RectanglePackingSolutionGeometryBased):
         h = super().heuristic(sol)
 
-        if self.allowed_overlap == 0:
+        if self.allowed_overlap == 0 or not self.relaxation_enabled:
             return h
 
         def penalty(sol):
@@ -270,7 +288,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
 
         p = self.penalty_factor * penalty(sol)
 
-        print("HEURISTIC:", h, "PENALTY:", p, "OVERLAP:", self.allowed_overlap)
+        # print("HEURISTIC:", h, "PENALTY:", p, "OVERLAP:", self.allowed_overlap)
 
         return h + p
 
@@ -424,8 +442,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
         if not sol.all_rects_put():
             self.put_all_rects(sol)
 
-        rect_selection = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=0.9,
-                                                       keep_top_dogs=True)
+        rect_selection = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=0.9, keep_top_dogs=True)
         rect_areas = self.get_rect_areas()
         max_area = max(rect_areas)
         min_area = min(rect_areas)

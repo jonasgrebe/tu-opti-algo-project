@@ -51,6 +51,7 @@ def local_search(problem: NeighborhoodProblem, gui: BaseGUI = None):
     print("\nLocal search took %.3f s" % (time.time() - t))
 
     # Step 3: deliver final solution (local optimum)
+    print(problem.is_feasible(current_solution))
     return current_solution
 
 
@@ -59,7 +60,7 @@ def get_best_neighbor(problem, solution):
 
     neighborhood = problem.get_neighborhood(solution)
 
-    # print("neighborhood size:", len(neighborhood))
+    print("neighborhood size:", len(neighborhood))
 
     neighborhood_values = [problem.heuristic(neighbor_solution) for neighbor_solution in neighborhood]
 
@@ -70,7 +71,8 @@ def get_best_neighbor(problem, solution):
         best_neighbor_idx = np.argmin(neighborhood_values)
         is_significantly_better = neighborhood_values[best_neighbor_idx] < value - MINIMUM_IMPROVEMENT
 
-    if not (is_significantly_better or problem.is_relaxation_active()) :
+    if not (is_significantly_better or problem.is_relaxation_active()) and problem.is_feasible(solution):
+        print(problem.is_feasible(solution))
         return None
 
     return neighborhood[best_neighbor_idx]
@@ -78,6 +80,9 @@ def get_best_neighbor(problem, solution):
 
 def get_next_better_neighbor(problem: NeighborhoodProblem, solution):
     value = problem.heuristic(solution)
+
+    best_neighbor_so_far = None
+    best_value_so_far = -np.inf if problem.is_max else np.inf
 
     for neighbors in problem.get_next_neighbors(solution):
         if not neighbors:
@@ -88,12 +93,23 @@ def get_next_better_neighbor(problem: NeighborhoodProblem, solution):
         if problem.is_max:
             best_neighbor_idx = np.argmax(neighbors_values)
             is_significantly_better = neighbors_values[best_neighbor_idx] > value + MINIMUM_IMPROVEMENT
+
+            if neighbors_values[best_neighbor_idx] >= best_value_so_far:
+                best_neighbor_so_far = neighbors[best_neighbor_idx].copy()
+                best_value_so_far = neighbors_values[best_neighbor_idx]
         else:
             best_neighbor_idx = np.argmin(neighbors_values)
             is_significantly_better = neighbors_values[best_neighbor_idx] < value - MINIMUM_IMPROVEMENT
 
+            if neighbors_values[best_neighbor_idx] <= best_value_so_far:
+                best_neighbor_so_far = neighbors[best_neighbor_idx].copy()
+                best_value_so_far = neighbors_values[best_neighbor_idx]
+
         if is_significantly_better or problem.is_relaxation_active():
             return neighbors[best_neighbor_idx]
+
+    if not problem.is_feasible(solution):
+        return best_neighbor_so_far
 
         # for neighbor in neighbors:
         #     if problem.is_max and problem.h(neighbor) > value:

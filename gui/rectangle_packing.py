@@ -292,6 +292,7 @@ class RectanglePackingGUI(BaseGUI):
 
             #rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
             #rangeslider_penalty = self.algo_config_menu.get_widget('rangeslider_penalty')
+            btn_relaxation = self.algo_config_menu.get_widget('toggle_relaxation')
 
             #if self.problem_type_name == 'rectangle_packing_geometry_based':
             #    rangeslider_overlap.show()
@@ -299,6 +300,11 @@ class RectanglePackingGUI(BaseGUI):
             #else:
             #    rangeslider_overlap.hide()
             #    #rangeslider_penalty.hide()
+
+            if self.problem_type_name == 'rectangle_packing_geometry_based':
+                btn_relaxation.show()
+            else:
+                btn_relaxation.hide()
 
         dropselect_neighborhood = self.algo_config_menu.add.dropselect(
             title='',
@@ -323,6 +329,28 @@ class RectanglePackingGUI(BaseGUI):
         dropselect_neighborhood.set_onmouseover(lambda: dropselect_onmouseover(dropselect_neighborhood))
         dropselect_neighborhood.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_neighborhood))
         self.algo_config_frame.pack(dropselect_neighborhood, margin=(15, 0))
+
+        def toggle_relaxation():
+            if self.is_searching:
+                return
+
+            btn_relaxation = self.algo_config_menu.get_widget('toggle_relaxation')
+            self.problem.toggle_relaxation()
+            if self.problem.is_relaxation_enabled():
+                btn_relaxation.set_title("Disable Relaxation")
+            else:
+                btn_relaxation.set_title("Enable Relaxation")
+
+
+        btn_relaxation = self.algo_config_menu.add.button(
+            'Enable Relaxation',
+            toggle_relaxation,
+            button_id='toggle_relaxation',
+            shadow_width=10
+        )
+        btn_relaxation.set_onmouseover(lambda: button_onmouseover(btn_relaxation))
+        btn_relaxation.set_onmouseleave(lambda: button_onmouseleave(btn_relaxation))
+        self.algo_config_frame.pack(btn_relaxation, margin=(0, 15))
 
         """
         def rangeslider_overlap_onchange(s, *args) -> None:
