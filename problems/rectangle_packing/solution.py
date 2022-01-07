@@ -81,6 +81,7 @@ class RectanglePackingSolution(Solution):
         self.rotations[rect_idx] = rotated
         self.is_put[rect_idx] = True
 
+
     def remove_rect(self, rect_idx):
         assert self.is_put[rect_idx]
 
@@ -200,7 +201,7 @@ class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
     def reset(self, locations=None, rotations=None):
         super().reset(locations, rotations)
         self.rectangle_fields = np.zeros((self.problem.num_rects, self.problem.num_rects, self.problem.box_length, self.problem.box_length), dtype=bool)
-        
+
 
     def put_rect(self, rect_idx, target_pos, rotated, update_ids=False):
         """Puts the specified rect to the given target position, rotated accordingly.

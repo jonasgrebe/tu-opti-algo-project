@@ -43,6 +43,15 @@ class RectanglePackingProblem(OptProblem, ABC):
         return np.sum(box_rect_cnts > 0)
 
 
+    def update_relaxation(self, step):
+        pass
+
+    def reset_relaxation(self):
+        pass
+
+    def is_relaxation_active(self):
+        return False
+
     def get_instance_params(self):
         return (self.sizes,)
 
@@ -160,6 +169,9 @@ class RectanglePackingProblem(OptProblem, ABC):
         return self.__heuristic(sol)
 
 
+    def update_penalty_factor(self, step):
+        self.penalty_factor = step ** 2
+
     def __rect_cnt_heuristic(self, sol: RectanglePackingSolution):
         """Depends on rectangle count per box."""
         if sol.move_pending:
@@ -209,15 +221,58 @@ class RectanglePackingProblem(OptProblem, ABC):
             pos_sum += target_pos.sum() - source_pos.sum()
             box_pos_sum += target_box_pos.sum() - source_box_pos.sum()
 
-        return pos_sum + box_pos_sum
+        cost = pos_sum
+        return cost
 
 
 class RectanglePackingProblemGeometryBased(RectanglePackingProblem, NeighborhoodProblem):
     def __init__(self, *args, **kwargs):
         super(RectanglePackingProblemGeometryBased, self).__init__(*args, **kwargs)
-
         self.allowed_overlap = 0.0
         self.penalty_factor = 0.0
+
+    def update_relaxation(self, step):
+        self.penalty_factor = step ** 3
+        self.allowed_overlap = np.exp(-step)
+        self.allowed_overlap = round(self.allowed_overlap, 2)
+
+        print("PENALTY_FACTOR:", self.penalty_factor, "OVERLAP:", self.allowed_overlap)
+
+    def reset_relaxation(self):
+        self.allowed_overlap = 1.0
+        self.penalty_factor = 0.0
+
+    def is_relaxation_active(self):
+        return self.allowed_overlap > 0
+
+    def heuristic(self, sol: RectanglePackingSolutionGeometryBased):
+        h = super().heuristic(sol)
+
+        if self.allowed_overlap == 0:
+            return h
+
+        def penalty(sol):
+            if sol.move_pending:
+                rect_idx, target_pos, rotated = sol.pending_move_params
+                orig_pos = sol.locations[rect_idx]
+                sol.apply_pending_move()
+
+                boxes_grid = sol.boxes_grid.copy()
+
+                sol.move_rect(rect_idx, orig_pos, rotated)
+                sol.apply_pending_move()
+                sol.move_rect(rect_idx, target_pos, rotated)
+            else:
+                boxes_grid = sol.boxes_grid
+
+            penalty = np.sum(boxes_grid[boxes_grid > 1] - 1)
+            return penalty
+
+        p = self.penalty_factor * penalty(sol)
+
+        print("HEURISTIC:", h, "PENALTY:", p, "OVERLAP:", self.allowed_overlap)
+
+        return h + p
 
     def place(self, rect_size, boxes_grid, selected_box_ids, rectangle_fields, box2rects, box_coords, one_per_box=True, allowed_overlap=0.0):
 
@@ -462,7 +517,6 @@ class RectanglePackingProblemGreedyStrategy(RectanglePackingProblem, Constructio
         return 0
 
     def set_cost_strategy(self, cost_strategy_name):
-
         if cost_strategy_name == 'smallest_position_costs_strategy':
             self.__costs = self.__smallest_position_costs
         elif cost_strategy_name == 'largest_area_costs_strategy':
@@ -498,7 +552,6 @@ class RectanglePackingProblemGreedyStrategy(RectanglePackingProblem, Constructio
 
         # shuffle to not influence the algorithm by the generation order of placement
         np.random.shuffle(elements)
-        print(f"[GREEDY] Generated {len(elements)} elements.")
         return elements
 
     def filter_elements(self, sol, elements, e):

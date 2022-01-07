@@ -273,7 +273,7 @@ class RectanglePackingGUI(BaseGUI):
             title='Algorithm Configuration'
         )
 
-        self.algo_config_frame = self.algo_config_menu.add.frame_v(width=320, height=400,
+        self.algo_config_frame = self.algo_config_menu.add.frame_v(width=350, height=400,
                                                                         padding=(15, 15),
                                                                          background_color=self.colors["menu_bg"],
                                                                          align=pygame_menu.locals.ALIGN_RIGHT)
@@ -325,7 +325,6 @@ class RectanglePackingGUI(BaseGUI):
         self.algo_config_frame.pack(dropselect_neighborhood, margin=(15, 0))
 
         def rangeslider_overlap_onchange(s, *args) -> None:
-            assert isinstance(self.problem, RectanglePackingProblemGeometryBased)
 
             rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
             self.problem.allowed_overlap = rangeslider_overlap.get_value()
@@ -333,7 +332,7 @@ class RectanglePackingGUI(BaseGUI):
         rangeslider_overlap = self.algo_config_menu.add.range_slider(
             'Overlap',
             rangeslider_id='rangeslider_overlap',
-            default=0.0,
+            default=1.0,
             range_values=(0, 1),
             increment=0.01,
             onchange=rangeslider_overlap_onchange,
@@ -361,7 +360,7 @@ class RectanglePackingGUI(BaseGUI):
         self.main_frame.pack(rangeslider_penalty, margin=(0, 15))
         """
 
-        label = self.algo_config_menu.add.label("Strategy / Element Costs",
+        label = self.algo_config_menu.add.label("Strategy",
                                          label_id="selection_strategy_label",
                                          background_color=pygame_menu.themes.TRANSPARENT_COLOR)
         label.hide()
@@ -372,7 +371,7 @@ class RectanglePackingGUI(BaseGUI):
 
             assert isinstance(self.problem, RectanglePackingProblemGreedyStrategy)
 
-            dropselect_selection_strategy = self.problem_config_frame.get_widget('selection_strategy')
+            dropselect_selection_strategy = self.algo_config_menu.get_widget('selection_strategy')
             self.problem.set_cost_strategy(args[0])
 
         dropselect_selection_strategy = self.algo_config_menu.add.dropselect(
@@ -496,6 +495,8 @@ class RectanglePackingGUI(BaseGUI):
             dropselect_selection_strategy = self.algo_config_menu.get_widget('selection_strategy')
             dropselect_selection_strategy_label = self.algo_config_menu.get_widget('selection_strategy_label')
 
+            rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
+
             if self.search_algorithm_name == 'local_search':
                 self.problem_type_name = dropselect_neighborhood.get_value()[0][1]
 
@@ -503,21 +504,22 @@ class RectanglePackingGUI(BaseGUI):
                 dropselect_neighborhood_label.show()
                 dropselect_selection_strategy.hide()
                 dropselect_selection_strategy_label.hide()
+                rangeslider_overlap.show()
 
             elif self.search_algorithm_name == 'greedy_search':
                 self.problem_type_name = 'rectangle_packing_greedy'
+
+                dropselect_neighborhood.hide()
+                dropselect_neighborhood_label.hide()
+                dropselect_selection_strategy.show()
+                dropselect_selection_strategy_label.show()
+                rangeslider_overlap.hide()
 
             self.__setup_new_problem()
 
             if self.search_algorithm_name == 'greedy_search':
                 cost_strategy_name = dropselect_selection_strategy.get_value()[0][1]
                 self.problem.set_cost_strategy(cost_strategy_name)
-
-                dropselect_neighborhood.hide()
-                dropselect_neighborhood_label.hide()
-                dropselect_selection_strategy.show()
-                dropselect_selection_strategy_label.show()
-
 
             heuristic_name = dropselect_heuristic.get_value()[0][1]
             self.problem.set_heuristic(heuristic_name)
@@ -866,7 +868,7 @@ class RectanglePackingGUI(BaseGUI):
                     self.dragging_camera = True
                     self.old_mouse_pos = mouse_pos
 
-                elif event.button == 1:  # left mousebutton
+                elif event.button == 1 and isinstance(self.problem, RectanglePackingProblemGeometryBased):  # left mousebutton
                     if self.selected_rect_idx is None:
                         self.selected_rect_idx = rect_idx
                         self.selection_rotated = False
@@ -880,7 +882,7 @@ class RectanglePackingGUI(BaseGUI):
                             self.set_current_solution(new_solution)
                             self.selected_rect_idx = None
 
-                elif event.button == 3:  # right mousebutton
+                elif event.button == 3 and isinstance(self.problem, RectanglePackingProblemGeometryBased):  # right mousebutton
                     if self.selected_rect_idx is not None:
                         self.selection_rotated = not self.selection_rotated
 

@@ -17,6 +17,7 @@ def local_search(problem: NeighborhoodProblem, gui: BaseGUI = None):
     # Step 2: While there is a better solution nearby, go to that solution
     step = 0
 
+    problem.reset_relaxation()
     while True:
         objective_value = problem.objective_function(current_solution)
         heuristic_value = problem.heuristic(current_solution)
@@ -39,6 +40,9 @@ def local_search(problem: NeighborhoodProblem, gui: BaseGUI = None):
                 # gui.set_current_solution(current_solution)
             else:
                 break
+
+        # potentiall de-relax the problem
+        problem.update_relaxation(step)
 
     # tell gui that search is over
     if gui is not None:
@@ -66,7 +70,7 @@ def get_best_neighbor(problem, solution):
         best_neighbor_idx = np.argmin(neighborhood_values)
         is_significantly_better = neighborhood_values[best_neighbor_idx] < value - MINIMUM_IMPROVEMENT
 
-    if not is_significantly_better:
+    if not (is_significantly_better or problem.is_relaxation_active()) :
         return None
 
     return neighborhood[best_neighbor_idx]
@@ -88,7 +92,7 @@ def get_next_better_neighbor(problem: NeighborhoodProblem, solution):
             best_neighbor_idx = np.argmin(neighbors_values)
             is_significantly_better = neighbors_values[best_neighbor_idx] < value - MINIMUM_IMPROVEMENT
 
-        if is_significantly_better:
+        if is_significantly_better or problem.is_relaxation_active():
             return neighbors[best_neighbor_idx]
 
         # for neighbor in neighbors:
