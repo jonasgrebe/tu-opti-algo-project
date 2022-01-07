@@ -9,8 +9,8 @@ from problems.rectangle_packing.solution import RectanglePackingSolutionGeometry
 import numpy as np
 import itertools
 
-MAX_CONSIDERED_BOXES = 999999999999999
-MAX_SELECTED_PLACINGS = 99999999999999999
+MAX_CONSIDERED_BOXES = 256
+MAX_SELECTED_PLACINGS = 4
 
 
 class RectanglePackingProblem(OptProblem, ABC):
@@ -159,7 +159,6 @@ class RectanglePackingProblem(OptProblem, ABC):
 
     def get_rect_areas(self):
         return np.prod(self.sizes, axis=1)
-
 
     def set_heuristic(self, heuristic_name):
         if heuristic_name == 'rectangle_count_heuristic':
@@ -399,7 +398,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         for rect_idx in rect_ids:
             # Select the n most promising boxes
             box_capacity = self.box_length ** 2
-            max_occupancy = box_capacity - self.areas[rect_idx]
+            max_occupancy = box_capacity - self.areas[rect_idx] * (1 - self.allowed_overlap)
             promising_boxes = sol.box_occupancies <= max_occupancy  # drop boxes which are too full
             sorted_box_ids = ordered_by_occupancy
             selected_box_ids = sorted_box_ids[promising_boxes[ordered_by_occupancy]]
