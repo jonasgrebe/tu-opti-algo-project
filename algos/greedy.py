@@ -42,6 +42,7 @@ def greedy_search(problem: ConstructionProblem, gui: BaseGUI = None):  # TODO: r
         if gui is not None:
             if gui.is_searching:
                 gui.set_and_animate_solution(partial_solution)
+                gui.update_search_info({'num_remaining_elements': len(elements)})
                 # gui.set_current_solution(partial_solution)
             else:
                 break

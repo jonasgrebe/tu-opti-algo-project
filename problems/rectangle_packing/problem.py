@@ -9,19 +9,39 @@ from problems.rectangle_packing.solution import RectanglePackingSolutionGeometry
 import numpy as np
 import itertools
 
-MAX_CONSIDERED_BOXES = 256
-MAX_SELECTED_PLACINGS = 4
+MAX_CONSIDERED_BOXES = 999999999999999
+MAX_SELECTED_PLACINGS = 99999999999999999
 
 
 class RectanglePackingProblem(OptProblem, ABC):
     def __init__(self, box_length, num_rects, w_min, w_max, h_min, h_max):
         super(RectanglePackingProblem, self).__init__(is_max=False)
+
         self.box_length = box_length
         self.num_rects = num_rects
         self.w_min, self.w_max = w_min, w_max
         self.h_min, self.h_max = h_min, h_max
 
         self.__generate(box_length, num_rects, w_min, w_max, h_min, h_max)
+
+        self.__heuristic = self.__small_box_position_heuristic
+
+    def objective_function(self, sol: RectanglePackingSolution):
+        """Returns the number of boxes occupied in the current sol. Function symbol f.
+        Assumes the solution to be feasible!"""
+        if sol.move_pending:
+            box_rect_cnts = sol.box_rect_cnts.copy()
+
+            rect_idx, target_pos, rotated = sol.pending_move_params
+            source_box_idx = sol.get_box_idx_by_rect_id(rect_idx)
+            target_box_idx = sol.get_box_idx_by_pos(target_pos)
+
+            box_rect_cnts[source_box_idx] -= 1
+            box_rect_cnts[target_box_idx] += 1
+        else:
+            box_rect_cnts = sol.box_rect_cnts
+        return np.sum(box_rect_cnts > 0)
+
 
     def get_instance_params(self):
         return (self.sizes,)
@@ -60,6 +80,7 @@ class RectanglePackingProblem(OptProblem, ABC):
 
         self.set_instance_params(sizes)
 
+
     def is_optimal(self, sol: RectanglePackingSolution):
         """If True is returned, the solution is optimal
         (otherwise no assertion can be made)."""
@@ -69,8 +90,10 @@ class RectanglePackingProblem(OptProblem, ABC):
     def place(self, rect_size, boxes_grid, selected_box_ids, box_coords, one_per_box=True):
         regions_to_place = np.lib.stride_tricks.sliding_window_view(boxes_grid[selected_box_ids],
                                                                     rect_size, axis=(1, 2))
-
         b, x, y = np.where(~np.any(regions_to_place, axis=(3, 4)))
+
+        if len(b) == 0:
+            return [], []
 
         if one_per_box:
             # Consider only one placement per box
@@ -86,6 +109,7 @@ class RectanglePackingProblem(OptProblem, ABC):
         locs = b_loc + np.stack([x, y], axis=1)
 
         return locs, b
+
 
     def get_rect_selection_order(self, box_occupancies, box2rects, occupancy_threshold=0.9, keep_top_dogs=False):
         # Drop rects which lie in very full boxes
@@ -122,15 +146,35 @@ class RectanglePackingProblem(OptProblem, ABC):
         return np.prod(self.sizes, axis=1)
 
 
+    def set_heuristic(self, heuristic_name):
+        if heuristic_name == 'rectangle_count_heuristic':
+            self.__heuristic = self.__rect_cnt_heuristic
+        elif heuristic_name == 'box_occupancy_heuristic':
+            self.__heuristic = self.__box_occupancy_heuristic
+        elif heuristic_name == 'small_box_position_heuristic':
+            self.__heuristic = self.__small_box_position_heuristic
+        else:
+            raise IllegalArgumentError
+
     def heuristic(self, sol: RectanglePackingSolution):
-        return self.__box_occupancy_heuristic(sol)
+        return self.__heuristic(sol)
+
 
     def __rect_cnt_heuristic(self, sol: RectanglePackingSolution):
         """Depends on rectangle count per box."""
         if sol.move_pending:
-            raise NotImplementedError
+            box_rect_cnts = sol.box_rect_cnts.copy()
 
-        cost = 1 - 0.5 ** sol.box_rect_cnts
+            rect_idx, target_pos, rotated = sol.pending_move_params
+            source_box_idx = sol.get_box_idx_by_rect_id(rect_idx)
+            target_box_idx = sol.get_box_idx_by_pos(target_pos)
+
+            box_rect_cnts[source_box_idx] -= 1
+            box_rect_cnts[target_box_idx] += 1
+        else:
+            box_rect_cnts = sol.box_rect_cnts
+
+        cost = 1 - 0.5 ** box_rect_cnts
         return np.sum(cost)
 
     def __box_occupancy_heuristic(self, sol: RectanglePackingSolution):
@@ -172,22 +216,72 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
     def __init__(self, *args, **kwargs):
         super(RectanglePackingProblemGeometryBased, self).__init__(*args, **kwargs)
 
-    def objective_function(self, sol: RectanglePackingSolutionGeometryBased):
-        """Returns the number of boxes occupied in the current sol. Function symbol f.
-        Assumes the solution to be feasible!"""
-        if sol.move_pending:
-            box_rect_cnts = sol.box_rect_cnts.copy()
+        self.allowed_overlap = 0.0
+        self.penalty_factor = 0.0
 
-            rect_idx, target_pos, rotated = sol.pending_move_params
-            source_box_idx = sol.get_box_idx_by_rect_id(rect_idx)
-            target_box_idx = sol.get_box_idx_by_pos(target_pos)
+    def place(self, rect_size, boxes_grid, selected_box_ids, rectangle_fields, box2rects, box_coords, one_per_box=True, allowed_overlap=0.0):
 
-            box_rect_cnts[source_box_idx] -= 1
-            box_rect_cnts[target_box_idx] += 1
+        if allowed_overlap == 0:
+            #  handle the simple case (can also be handles with the 'else' case but probably takes more time)
+            regions_to_place = np.lib.stride_tricks.sliding_window_view(boxes_grid[selected_box_ids], rect_size, axis=(1, 2))
+            b, x, y = np.where(~np.any(regions_to_place, axis=(3, 4)))
+
         else:
-            box_rect_cnts = sol.box_rect_cnts
-        return np.sum(box_rect_cnts > 0)
+            # -------- quick filter for rectangles in the selected boxes -------
+            #contained_rectangles = []
+            #for box_id in selected_box_ids:
+            #    contained_rectangles.extend(box2rects[box_id])
+            #contained_rectangles = np.array(contained_rectangles)
 
+            # (b, rects, L, L) -> (b, rects, x, y, w, h)
+            regions_to_place_per_rect = np.lib.stride_tricks.sliding_window_view(rectangle_fields[selected_box_ids], rect_size, axis=(2, 3))
+
+            # (b, rects, x, y, w, h) -> (b, x, y, rects, w, h)
+            regions_to_place_per_rect = regions_to_place_per_rect.transpose((0, 2, 3, 1, 4, 5))
+
+            # --------- get only the rects per region that overlap -------------
+            # (b, x, y, rects, w, h) -> (b, x, y, rects)
+            r_overlaps = regions_to_place_per_rect.sum(axis=(4, 5))
+
+            # (b, x, y, rects)
+            b, x, y, r = np.where(r_overlaps >= 0)
+
+            # get areas of involved rectangles
+            r1_area = np.prod(rect_size)
+            r2_areas = self.areas[r]
+
+            # focus on the pairwise maxima and compute ratios of overlaps
+            max_areas = np.maximum(r1_area, r2_areas)
+            overlap_ratios = np.divide(r_overlaps.reshape(1, -1), max_areas)
+
+            # is the overlap not exceeding the allowed overlap?
+            valid = overlap_ratios <= allowed_overlap
+            # reshape to the convenient (b, x, y, r) shape
+            valid = valid.reshape(r_overlaps.shape)
+
+            # all (b, x, y) triplets are valid for which all r values are True (no rectangle invalidates this placement)
+            b, x, y = np.where(np.all(valid, axis=3))
+
+            #m = overlap_ratios.reshape(r_overlaps.shape)[b, x, y].max()
+            #print("\nPLACE:", overlap_ratios.reshape(r_overlaps.shape)[b, x, y].max(), self.allowed_overlap)
+
+        if len(b) == 0:
+            return [], []
+
+        if one_per_box:
+            # Consider only one placement per box
+            b_cmp = b.copy()
+            b_cmp[0] = -1
+            b_cmp[1:] = b[:-1]
+            first_valid_placement = b_cmp < b
+            b, x, y, = b[first_valid_placement], x[first_valid_placement], y[first_valid_placement]
+
+        # Convert into location data
+        b_id = selected_box_ids[b]
+        b_loc = box_coords[b_id] * self.box_length
+        locs = b_loc + np.stack([x, y], axis=1)
+
+        return locs, b
 
     def is_feasible(self, sol: RectanglePackingSolutionGeometryBased):
         if sol.move_pending:
@@ -226,7 +320,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
 
         # ---- Preprocessing: Determine a good rect selection order ----
-        rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects)
+        rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=1.0, keep_top_dogs=True)
 
         # ---- Check placements using sliding window approach ----
         for rect_idx in rect_ids:
@@ -245,7 +339,10 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
                 relevant_locs, _ = self.place(rect_size=self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1],
                                               boxes_grid=sol.boxes_grid,
                                               selected_box_ids=selected_box_ids,
-                                              box_coords=sol.box_coords)
+                                              rectangle_fields=sol.rectangle_fields,
+                                              box2rects=sol.box2rects,
+                                              box_coords=sol.box_coords,
+                                              allowed_overlap=self.allowed_overlap)
 
                 # Prune abundant options
                 relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
@@ -300,7 +397,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
         if not sol.all_rects_put():
             self.put_all_rects(sol)
 
-        return np.sum(sol.box_rect_cnts > 0)
+        return super().objective_function(sol)
 
     def select_boxes_to_place(self, sol: RectanglePackingSolutionRuleBased, rect_idx: int):
         rect_area = np.prod(self.sizes[rect_idx])
@@ -343,226 +440,40 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
                and np.all(sol.rect_order < self.num_rects)
 
 
-class RectanglePackingProblemOverlap(RectanglePackingProblem, NeighborhoodProblem):
-    def __init__(self, *args, **kwargs):
-        super(RectanglePackingProblemOverlap, self).__init__(*args, **kwargs)
-        self.allowed_overlap = 0.0  # 1 = rects are allowed to overlap completely, 0 = no overlap allowed
-        self.penalty_factor = 0.0
-
-    def objective_function(self, sol: RectanglePackingSolutionOverlap):
-        """Returns the number of boxes occupied in the current sol. Function symbol f.
-        Assumes the solution to be feasible!"""
-        if sol.move_pending:
-            box_rect_cnts = sol.box_rect_cnts.copy()
-
-            rect_idx, target_pos, rotated = sol.pending_move_params
-            source_box_idx = sol.get_box_idx_by_rect_id(rect_idx)
-            target_box_idx = sol.get_box_idx_by_pos(target_pos)
-
-            box_rect_cnts[source_box_idx] -= 1
-            box_rect_cnts[target_box_idx] += 1
-        else:
-            box_rect_cnts = sol.box_rect_cnts
-        return np.sum(box_rect_cnts > 0)
-
-    def heuristic(self, sol: RectanglePackingSolutionOverlap):
-        """Assumes the solution to be feasible!"""
-        return super().heuristic(sol) + self.penalty(sol)
-
-    def penalty(self, sol: RectanglePackingSolutionOverlap):
-       return np.sum(sol.boxes_grid[sol.boxes_grid > 1] - 1) * self.penalty_factor
-
-
-    def is_feasible(self, sol: RectanglePackingSolutionOverlap):
-        if sol.move_pending:
-            # Remember current configuration and apply pending move
-            rect_idx, target_pos, rotated = sol.pending_move_params
-            orig_pos = sol.locations[rect_idx]
-
-            sol.apply_pending_move()
-
-            feasible = self.__rect_overlap_tolerable(sol) and rects_respect_boxes(sol)
-
-            # Re-construct original sol
-            sol.move_rect(rect_idx, orig_pos, rotated)
-            sol.apply_pending_move()
-            sol.move_rect(rect_idx, target_pos, rotated)
-
-            return feasible
-        else:
-            return self.__rect_overlap_tolerable(sol) and rects_respect_boxes(sol)
-
-    def get_arbitrary_solution(self):
-        """Returns a solution where each rectangle is placed into an own box (not rotated)."""
-        num_cols = int(np.ceil(np.sqrt(self.num_rects)))
-        x_locations = np.arange(self.num_rects) % num_cols
-        y_locations = np.arange(self.num_rects) // num_cols
-        locations = np.stack([x_locations, y_locations], axis=1) * self.box_length
-        rotations = np.zeros(self.num_rects, dtype=np.bool)
-        sol = RectanglePackingSolutionOverlap(self)
-        sol.set_solution(locations, rotations)
-        return sol
-
-    def get_neighborhood(self, sol: RectanglePackingSolutionOverlap):
-        return list(itertools.chain(*list(self.get_next_neighbors(sol))))
-
-    def get_next_neighbors(self, sol: RectanglePackingSolutionOverlap):
-        """Returns all valid placing coordinates for all rectangles."""
-        ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
-        
-        # ---- Preprocessing: Determine a good rect selection order ----
-        rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=1.0, keep_top_dogs=True)
-
-        # ---- Check placements using sliding window approach ----
-        for rect_idx in rect_ids:
-            # Select the n most promising boxes
-            box_capacity = self.box_length ** 2
-            max_occupancy = box_capacity - self.areas[rect_idx] * (1 - self.allowed_overlap)
-            selected_box_ids = ordered_by_occupancy
-            #selected_box_ids = selected_box_ids[:MAX_CONSIDERED_BOXES]  # take at most a certain number of boxes
-
-            sols = []
-
-            for rotate in [False, True]:
-                # Identify all locations which are allowed for placement
-                relevant_locs = self.__place_with_overlap(rect_size=self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1],
-                                              boxes_grid=sol.boxes_grid,
-                                              selected_box_ids=selected_box_ids,
-                                              box_coords=sol.box_coords,
-                                              rectangle_fields=sol.rectangle_fields,
-                                              box2rects=sol.box2rects
-                                              )
-
-                # Prune abundant options
-                #relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
-
-                # Generate new sols
-                for loc in relevant_locs:
-                    new_sol = sol.copy()
-                    new_sol.move_rect(rect_idx, loc, rotate)
-                    # assert self.is_feasible(new_sol)
-                    sols += [new_sol]
-
-            # print("generating %d neighbors took %.3f s" % (len(sols), time.time() - t))
-            yield sols
-
-
-    def __place_with_overlap(self, rect_size, boxes_grid, selected_box_ids, rectangle_fields, box2rects, box_coords):
-
-        if self.allowed_overlap == 0:
-            #  handle the simple case (can also be handles with the 'else' case but probably takes more time)
-            regions_to_place = np.lib.stride_tricks.sliding_window_view(boxes_grid[selected_box_ids], rect_size, axis=(1, 2))
-            b, x, y = np.where(~np.any(regions_to_place, axis=(3, 4)))
-        else:
-
-            # -------- quick filter for rectangles in the selected boxes -------
-            #contained_rectangles = []
-            #for box_id in selected_box_ids:
-            #    contained_rectangles.extend(box2rects[box_id])
-            #contained_rectangles = np.array(contained_rectangles)
-
-            # (b, rects, L, L) -> (b, rects, x, y, w, h)
-            regions_to_place_per_rect = np.lib.stride_tricks.sliding_window_view(rectangle_fields[selected_box_ids], rect_size, axis=(2, 3))
-
-            # (b, rects, x, y, w, h) -> (b, x, y, rects, w, h)
-            regions_to_place_per_rect = regions_to_place_per_rect.transpose((0, 2, 3, 1, 4, 5))
-
-            # --------- get only the rects per region that overlap -------------
-            # (b, x, y, rects, w, h) -> (b, x, y, rects)
-            r_overlaps = regions_to_place_per_rect.sum(axis=(4, 5))
-
-            # (b, x, y, rects)
-            b, x, y, r = np.where(r_overlaps >= 0)
-
-            # get areas of involved rectangles
-            r1_area = np.prod(rect_size)
-            r2_areas = self.areas[r]
-
-            # focus on the pairwise maxima and compute ratios of overlaps
-            max_areas = np.maximum(r1_area, r2_areas)
-            overlap_ratios = np.divide(r_overlaps.reshape(1, -1), max_areas)
-
-            # is the overlap not exceeding the allowed overlap?
-            valid = overlap_ratios <= self.allowed_overlap
-            # reshape to the convenient (b, x, y, r) shape
-            valid = valid.reshape(r_overlaps.shape)
-
-            # all (b, x, y) triplets are valid for which all r values are True (no rectangle invalidates this placement)
-            b, x, y = np.where(np.all(valid, axis=3))
-
-            #m = overlap_ratios.reshape(r_overlaps.shape)[b, x, y].max()
-            #print("\nPLACE:", overlap_ratios.reshape(r_overlaps.shape)[b, x, y].max(), self.allowed_overlap)
-
-        if len(b) == 0:
-            return []
-
-        # Consider only one placement per box
-        b_cmp = b.copy()
-        b_cmp[0] = -1
-        b_cmp[1:] = b[:-1]
-        first_valid_placement = b_cmp < b
-        b, x, y, = b[first_valid_placement], x[first_valid_placement], y[first_valid_placement]
-
-        # Convert into location data
-        b_id = selected_box_ids[b]
-        b_loc = box_coords[b_id] * self.box_length
-        locs = b_loc + np.stack([x, y], axis=1)
-
-        return locs
-
-
-    def __rect_overlap_tolerable(self, sol: RectanglePackingSolutionOverlap):
-        # Identify boxes with overlap
-        overlap_box_ids = list(set(list(np.where(sol.boxes_grid > 1)[0])))
-
-        sizes = sol.get_rect_sizes()
-
-        max_seen_overlap = 0
-
-        # For each box check the overlaps of its contained rects
-        for box_idx in overlap_box_ids:
-            contained_rects_ids = sol.box2rects[box_idx]
-            for i, rect_1 in enumerate(contained_rects_ids[:-1]):  # O(n^2) with n = len(contained_rects_ids)
-                for rect_2 in contained_rects_ids[i+1:]:
-                    x_1, y_1 = sol.locations[rect_1]
-                    x_2, y_2 = sol.locations[rect_2]
-                    w_1, h_1 = sizes[rect_1]
-                    w_2, h_2 = sizes[rect_2]
-
-                    l_1, r_1, t_1, b_1 = x_1, x_1 + w_1, y_1, y_1 + h_1
-                    l_2, r_2, t_2, b_2 = x_2, x_2 + w_2, y_2, y_2 + h_2
-
-                    x_overlap = max(r_2 - l_1, 0) - max(l_2 - l_1, 0) - max(r_2 - r_1, 0) + max(l_2 - r_1, 0)
-                    y_overlap = max(b_2 - t_1, 0) - max(t_2 - t_1, 0) - max(b_2 - b_1, 0) + max(t_2 - b_1, 0)
-
-                    overlap_area = x_overlap * y_overlap
-
-                    total_area = max(sol.problem.areas[rect_1], sol.problem.areas[rect_2])
-                    overlap = overlap_area / total_area
-
-                    if overlap > max_seen_overlap:
-                        max_seen_overlap = overlap
-
-                    if overlap > self.allowed_overlap:
-                        print("[FEASIBLE_CHECK] max_seen_overlap:", max_seen_overlap)
-                        return False
-
-        return True
-
-
-
 class RectanglePackingProblemGreedyStrategy(RectanglePackingProblem, ConstructionProblem):
     def __init__(self, *args, **kwargs):
         super(RectanglePackingProblemGreedyStrategy, self).__init__(*args, **kwargs)
 
-    def objective_function(self, sol: RectanglePackingSolutionGreedy):
-        return np.sum(sol.box_rect_cnts > 0)
+        self.__costs = self.__smallest_position_costs
 
-    def heuristic(self, sol: RectanglePackingSolutionGreedy):
-        return occupancy_heuristic(sol)
+    def __smallest_position_costs(self, e):
+        _, target_pos, _ = e
+        return sum(target_pos)
+
+    def __largest_area_costs(self, e):
+        rect_idx, _, _ = e
+        return - np.prod(self.sizes[rect_idx])
+
+    def __smallest_position_plus_largest_area_costs(self, e):
+        rect_idx, target_pos, _ = e
+        return - np.prod(self.sizes[rect_idx]) + sum(target_pos)
+
+    def __uniform_costs(self, e):
+        return 0
+
+    def set_cost_strategy(self, cost_strategy_name):
+
+        if cost_strategy_name == 'smallest_position_costs_strategy':
+            self.__costs = self.__smallest_position_costs
+        elif cost_strategy_name == 'largest_area_costs_strategy':
+            self.__costs = self.__largest_area_costs
+        elif cost_strategy_name == 'smallest_position_plus_largest_area_costs_strategy':
+            self.__costs = self.__smallest_position_plus_largest_area_costs
+        elif cost_strategy_name == 'uniform_costs_strategy':
+            self.__costs = self.__uniform_costs
 
     def costs(self, e):
-        raise NotImplementedError
+        return self.__costs(e)
 
     def get_elements(self, sol):
         """Returns a list of elements"""
@@ -593,7 +504,7 @@ class RectanglePackingProblemGreedyStrategy(RectanglePackingProblem, Constructio
     def filter_elements(self, sol, elements, e):
         return list(filter(lambda x: x[0] != e[0], elements))
 
-    def filter_elements_wiht_numpy(self, sol, elements, e):
+    def filter_elements_with_numpy(self, sol, elements, e):
         elements = elements[np.where(elements[:, 0] != e[0])] # list(filter(lambda x: x[0] != e[0], elements))
 
         e_rect_idx, e_pos, e_rotated = e
@@ -701,39 +612,6 @@ class RectanglePackingProblemGreedyStrategy(RectanglePackingProblem, Constructio
             yield [min(sols, key=self.heuristic)]
 
 
-class RectanglePackingProblemGreedySmallestPositionStrategy(RectanglePackingProblemGreedyStrategy):
-    def __init__(self, *args, **kwargs):
-        super(RectanglePackingProblemGreedySmallestPositionStrategy, self).__init__(*args, **kwargs)
-
-    def costs(self, e):
-        _, target_pos, _ = e
-        return sum(target_pos)
-
-
-class RectanglePackingProblemGreedyLargestAreaStrategy(RectanglePackingProblemGreedyStrategy):
-    def __init__(self, *args, **kwargs):
-        super(RectanglePackingProblemGreedyLargestAreaStrategy, self).__init__(*args, **kwargs)
-
-    def costs(self, e):
-        rect_idx, _, _ = e
-        return - np.prod(self.sizes[rect_idx])
-
-
-class RectanglePackingProblemGreedyLargestAreaSmallestPositionStrategy(RectanglePackingProblemGreedyStrategy):
-    def __init__(self, *args, **kwargs):
-        super(RectanglePackingProblemGreedyLargestAreaSmallestPositionStrategy, self).__init__(*args, **kwargs)
-
-    def costs(self, e):
-        rect_idx, target_pos, _ = e
-        return - np.prod(self.sizes[rect_idx]) + sum(target_pos)
-
-
-class RectanglePackingProblemGreedyUniformStrategy(RectanglePackingProblemGreedyStrategy):
-    def __init__(self, *args, **kwargs):
-        super(RectanglePackingProblemGreedyUniformStrategy, self).__init__(*args, **kwargs)
-
-    def costs(self, e):
-        return 0
 
 
 def occupancy_heuristic(sol: RectanglePackingSolution):

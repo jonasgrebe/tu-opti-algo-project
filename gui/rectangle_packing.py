@@ -11,16 +11,14 @@ from gui import BaseGUI
 from problems.rectangle_packing.problem import (
     RectanglePackingSolution,
     RectanglePackingSolutionGeometryBased,
-    RectanglePackingSolutionOverlap,
+    RectanglePackingSolutionRuleBased,
+    RectanglePackingSolutionGreedy,
+
+    RectanglePackingProblem,
     RectanglePackingProblemGeometryBased,
     RectanglePackingProblemRuleBased,
-    RectanglePackingProblemOverlap,
-    RectanglePackingProblemGreedyStrategy,
-    RectanglePackingProblemGreedySmallestPositionStrategy,
-    RectanglePackingProblemGreedyLargestAreaStrategy,
-    RectanglePackingProblemGreedyLargestAreaSmallestPositionStrategy,
-    RectanglePackingProblemGreedyUniformStrategy
-)
+    RectanglePackingProblemGreedyStrategy
+    )
 
 ZOOM_STEP_FACTOR = 1.1
 
@@ -36,11 +34,7 @@ class RectanglePackingGUI(BaseGUI):
         self.problem_types = {
             'rectangle_packing_geometry_based': RectanglePackingProblemGeometryBased,
             'rectangle_packing_rule_based': RectanglePackingProblemRuleBased,
-            'rectangle_packing_overlap': RectanglePackingProblemOverlap,
-            'rectangle_packing_greedy_smallest_position': RectanglePackingProblemGreedySmallestPositionStrategy,
-            'rectangle_packing_greedy_largest_area': RectanglePackingProblemGreedyLargestAreaStrategy,
-            'rectangle_packing_greedy_largest_area_smallest_position': RectanglePackingProblemGreedyLargestAreaSmallestPositionStrategy,
-            'rectangle_packing_greedy_uniform': RectanglePackingProblemGreedyUniformStrategy
+            'rectangle_packing_greedy': RectanglePackingProblemGreedyStrategy,
         }
         self.init_sol = None
 
@@ -73,6 +67,7 @@ class RectanglePackingGUI(BaseGUI):
         self.search_thread = None
         self.search_start_time = None
         self.anim_sleep = 2
+        self.search_info = {}
 
     @property
     def colors(self):
@@ -258,19 +253,204 @@ class RectanglePackingGUI(BaseGUI):
         )
         self.problem_config_frame.pack(rangeslider_h_max, margin=(0, 15))
 
-        btn_close_config_menu = self.problem_config_menu.add.button(
+        btn_close_problem_config_menu = self.problem_config_menu.add.button(
             title='Apply',
             action=pygame_menu.events.BACK,
-            button_id='close_mini_menu',
+            button_id='close_config_menu',
             shadow_width=10
         )
-        btn_close_config_menu.set_onmouseover(lambda: button_onmouseover(btn_close_config_menu))
-        btn_close_config_menu.set_onmouseleave(lambda: button_onmouseleave(btn_close_config_menu))
-        self.problem_config_frame.pack(btn_close_config_menu, margin=(0, 35))
+        btn_close_problem_config_menu.set_onmouseover(lambda: button_onmouseover(btn_close_problem_config_menu))
+        btn_close_problem_config_menu.set_onmouseleave(lambda: button_onmouseleave(btn_close_problem_config_menu))
+        self.problem_config_frame.pack(btn_close_problem_config_menu, margin=(0, 35))
+
+
+        # Algorithm Config Menu
+        self.algo_config_menu = pygame_menu.Menu(
+            width=self.screen.get_width(),
+            height=self.screen.get_height(),
+            mouse_motion_selection=True,
+            theme=theme,
+            title='Algorithm Configuration'
+        )
+
+        self.algo_config_frame = self.algo_config_menu.add.frame_v(width=320, height=400,
+                                                                        padding=(15, 15),
+                                                                         background_color=self.colors["menu_bg"],
+                                                                         align=pygame_menu.locals.ALIGN_RIGHT)
+        self.algo_config_menu._relax = True
+
+
+        label = self.algo_config_menu.add.label("Neighborhood", label_id="neighborhood_label",
+                                                      background_color=pygame_menu.themes.TRANSPARENT_COLOR)
+
+        self.algo_config_frame.pack(label, margin=(0, 15))
+
+        def dropselect_neighborhood_onchange(s, *args) -> None:
+            self.stop_search()
+            self.problem_type_name = args[0]
+            self.__setup_new_problem()
+
+            rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
+            #rangeslider_penalty = self.algo_config_menu.get_widget('rangeslider_penalty')
+
+            if self.problem_type_name == 'rectangle_packing_geometry_based':
+                rangeslider_overlap.show()
+                #rangeslider_penalty.show()
+            else:
+                rangeslider_overlap.hide()
+                #rangeslider_penalty.hide()
+
+        dropselect_neighborhood = self.algo_config_menu.add.dropselect(
+            title='',
+            items=[
+                ('Geometry-based', 'rectangle_packing_geometry_based'),
+                ('Rule-based', 'rectangle_packing_rule_based'),
+            ],
+            dropselect_id='neighborhood',
+            onchange=dropselect_neighborhood_onchange,
+            default=0,
+            padding=0,
+            placeholder='Select',
+            selection_box_height=5,
+            selection_box_width=250,
+            selection_box_inflate=(5, 15),
+            selection_box_margin=0,
+            selection_box_border_color=self.colors['button_bg'],
+            selection_option_font_color=self.colors['font'],
+            selection_box_bgcolor=self.colors['button_bg'],
+            shadow_width=10
+        )
+        dropselect_neighborhood.set_onmouseover(lambda: dropselect_onmouseover(dropselect_neighborhood))
+        dropselect_neighborhood.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_neighborhood))
+        self.algo_config_frame.pack(dropselect_neighborhood, margin=(15, 0))
+
+        def rangeslider_overlap_onchange(s, *args) -> None:
+            assert isinstance(self.problem, RectanglePackingProblemGeometryBased)
+
+            rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
+            self.problem.allowed_overlap = rangeslider_overlap.get_value()
+
+        rangeslider_overlap = self.algo_config_menu.add.range_slider(
+            'Overlap',
+            rangeslider_id='rangeslider_overlap',
+            default=0.0,
+            range_values=(0, 1),
+            increment=0.01,
+            onchange=rangeslider_overlap_onchange,
+            shadow_width=10
+        )
+        self.algo_config_frame.pack(rangeslider_overlap, margin=(0, 15))
+
+        """
+        def rangeslider_penalty_onchange(s, *args) -> None:
+            assert isinstance(self.problem, RectanglePackingProblemGeometryBased)
+
+            rangeslider_penalty = self.main_menu.get_widget('rangeslider_penalty')
+            self.problem.penalty_factor = rangeslider_penalty.get_value()
+
+        rangeslider_penalty = self.main_menu.add.range_slider(
+            'Penalty',
+            rangeslider_id='rangeslider_penalty',
+            default=0.0,
+            range_values=(0, 1000),
+            increment=0.1,
+            onchange=rangeslider_penalty_onchange,
+            shadow_width=10
+        )
+        rangeslider_penalty.hide()
+        self.main_frame.pack(rangeslider_penalty, margin=(0, 15))
+        """
+
+        label = self.algo_config_menu.add.label("Strategy / Element Costs",
+                                         label_id="selection_strategy_label",
+                                         background_color=pygame_menu.themes.TRANSPARENT_COLOR)
+        label.hide()
+        self.algo_config_frame.pack(label, margin=(0, 15))
+
+        def dropselect_selection_strategy_onchange(s, *args) -> None:
+            self.stop_search()
+
+            assert isinstance(self.problem, RectanglePackingProblemGreedyStrategy)
+
+            dropselect_selection_strategy = self.problem_config_frame.get_widget('selection_strategy')
+            self.problem.set_cost_strategy(args[0])
+
+        dropselect_selection_strategy = self.algo_config_menu.add.dropselect(
+            title='',
+            items=[
+                ('Position', 'smallest_position_costs_strategy'),
+                ('Largest Area', 'largest_area_costs_strategy'),
+                ('Position + Largest Area', 'smallest_position_plus_largest_area_costs_strategy'),
+                ('Uniform', 'uniform_costs_strategy')
+            ],
+            dropselect_id='selection_strategy',
+            onchange=dropselect_selection_strategy_onchange,
+            default=0,
+            padding=0,
+            placeholder='Select',
+            selection_box_height=5,
+            selection_box_width=250,
+            selection_box_inflate=(5, 15),
+            selection_box_margin=0,
+            selection_box_border_color=self.colors['button_bg'],
+            selection_option_font_color=self.colors['font'],
+            selection_box_bgcolor=self.colors['button_bg'],
+            shadow_width=10
+        )
+        dropselect_selection_strategy.set_onmouseover(lambda: dropselect_onmouseover(dropselect_selection_strategy))
+        dropselect_selection_strategy.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_selection_strategy))
+        dropselect_selection_strategy.hide()
+        self.algo_config_frame.pack(dropselect_selection_strategy, margin=(15, 0))
+
+
+        label = self.algo_config_menu.add.label("Heuristic", label_id="heuristic_label",
+                                                      background_color=pygame_menu.themes.TRANSPARENT_COLOR)
+        self.algo_config_frame.pack(label, margin=(0, 15))
+
+        def dropselect_heuristic_onchange(s, *args) -> None:
+            self.is_paused = True
+            self.stop_search()
+            self.problem.set_heuristic(args[0])
+
+        dropselect_heuristic = self.algo_config_menu.add.dropselect(
+            title='',
+            items=[
+                ('Rectangle Count', 'rectangle_count_heuristic'),
+                ('Box Occupancy', 'box_occupancy_heuristic'),
+                ('Small Box Position', 'small_box_position_heuristic')
+            ],
+            dropselect_id='heuristic',
+            onchange=dropselect_heuristic_onchange,
+            default=2,
+            padding=0,
+            placeholder='Select',
+            selection_box_height=5,
+            selection_box_width=250,
+            selection_box_inflate=(5, 15),
+            selection_box_margin=0,
+            selection_box_border_color=self.colors['button_bg'],
+            selection_option_font_color=self.colors['font'],
+            selection_box_bgcolor=self.colors['button_bg'],
+            shadow_width=10
+        )
+        dropselect_heuristic.set_onmouseover(lambda: dropselect_onmouseover(dropselect_heuristic))
+        dropselect_heuristic.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_heuristic))
+        self.algo_config_frame.pack(dropselect_heuristic, margin=(15, 0))
+
+
+        btn_close_algo_config_menu = self.algo_config_menu.add.button(
+            title='Apply',
+            action=pygame_menu.events.BACK,
+            button_id='close_algo_config_menu',
+            shadow_width=10
+        )
+        btn_close_algo_config_menu.set_onmouseover(lambda: button_onmouseover(btn_close_algo_config_menu))
+        btn_close_algo_config_menu.set_onmouseleave(lambda: button_onmouseleave(btn_close_algo_config_menu))
+        self.algo_config_frame.pack(btn_close_algo_config_menu, margin=(0, 35))
 
         # Main Menu:
 
-        self.main_frame = self.main_menu.add.frame_v(width=270, height=600,
+        self.main_frame = self.main_menu.add.frame_v(width=270, height=575,
                                                      padding=(15, 15),
                                                      background_color=self.colors["menu_bg"],
                                                      align=pygame_menu.locals.ALIGN_RIGHT)
@@ -311,10 +491,10 @@ class RectanglePackingGUI(BaseGUI):
             self.search_algorithm_name = args[0]
             self.search = self.search_algorithms[self.search_algorithm_name]
 
-            dropselect_neighborhood = self.main_menu.get_widget('neighborhood')
-            dropselect_neighborhood_label = self.main_menu.get_widget('neighborhood_label')
-            dropselect_selection_strategy = self.main_menu.get_widget('selection_strategy')
-            dropselect_selection_strategy_label = self.main_menu.get_widget('selection_strategy_label')
+            dropselect_neighborhood = self.algo_config_menu.get_widget('neighborhood')
+            dropselect_neighborhood_label = self.algo_config_menu.get_widget('neighborhood_label')
+            dropselect_selection_strategy = self.algo_config_menu.get_widget('selection_strategy')
+            dropselect_selection_strategy_label = self.algo_config_menu.get_widget('selection_strategy_label')
 
             if self.search_algorithm_name == 'local_search':
                 self.problem_type_name = dropselect_neighborhood.get_value()[0][1]
@@ -325,14 +505,22 @@ class RectanglePackingGUI(BaseGUI):
                 dropselect_selection_strategy_label.hide()
 
             elif self.search_algorithm_name == 'greedy_search':
-                self.problem_type_name = dropselect_selection_strategy.get_value()[0][1]
+                self.problem_type_name = 'rectangle_packing_greedy'
+
+            self.__setup_new_problem()
+
+            if self.search_algorithm_name == 'greedy_search':
+                cost_strategy_name = dropselect_selection_strategy.get_value()[0][1]
+                self.problem.set_cost_strategy(cost_strategy_name)
 
                 dropselect_neighborhood.hide()
                 dropselect_neighborhood_label.hide()
                 dropselect_selection_strategy.show()
                 dropselect_selection_strategy_label.show()
 
-            self.__setup_new_problem()
+
+            heuristic_name = dropselect_heuristic.get_value()[0][1]
+            self.problem.set_heuristic(heuristic_name)
 
             # btn_search.readonly = False
             btn_search.is_selectable = True
@@ -362,125 +550,15 @@ class RectanglePackingGUI(BaseGUI):
         dropselect_algorithm.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_algorithm))
         self.main_frame.pack(dropselect_algorithm, margin=(15, 0))
 
-        self.main_frame.pack(self.main_menu.add.label("Neighborhood", label_id="neighborhood_label",
-                                                      background_color=pygame_menu.themes.TRANSPARENT_COLOR),
-                             margin=(0, 15))
-
-        def dropselect_neighborhood_onchange(s, *args) -> None:
-            self.stop_search()
-            self.problem_type_name = args[0]
-            self.__setup_new_problem()
-
-            rangeslider_overlap = self.main_menu.get_widget('rangeslider_overlap')
-            rangeslider_penalty = self.main_menu.get_widget('rangeslider_penalty')
-
-            if self.problem_type_name == 'rectangle_packing_overlap':
-                rangeslider_overlap.show()
-                rangeslider_penalty.show()
-            else:
-                rangeslider_overlap.hide()
-                rangeslider_penalty.hide()
-
-        dropselect_neighborhood = self.main_menu.add.dropselect(
-            title='',
-            items=[
-                ('Geometry-based', 'rectangle_packing_geometry_based'),
-                ('Rule-based', 'rectangle_packing_rule_based'),
-                ('Allow Overlap', 'rectangle_packing_overlap'),
-            ],
-            dropselect_id='neighborhood',
-            onchange=dropselect_neighborhood_onchange,
-            default=0,
-            padding=0,
-            placeholder='Select',
-            selection_box_height=5,
-            selection_box_width=220,
-            selection_box_inflate=(5, 15),
-            selection_box_margin=0,
-            selection_box_border_color=self.colors['button_bg'],
-            selection_option_font_color=self.colors['font'],
-            selection_box_bgcolor=self.colors['button_bg'],
+        btn_configure = self.main_menu.add.button(
+            title='Configure Algorithm',
+            action=self.algo_config_menu,
+            button_id='configure_algo',
             shadow_width=10
         )
-        dropselect_neighborhood.set_onmouseover(lambda: dropselect_onmouseover(dropselect_neighborhood))
-        dropselect_neighborhood.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_neighborhood))
-        self.main_frame.pack(dropselect_neighborhood, margin=(15, 0))
-
-        def rangeslider_overlap_onchange(s, *args) -> None:
-            assert isinstance(self.problem, RectanglePackingProblemOverlap)
-
-            rangeslider_overlap = self.main_menu.get_widget('rangeslider_overlap')
-            self.problem.allowed_overlap = rangeslider_overlap.get_value()
-
-        rangeslider_overlap = self.main_menu.add.range_slider(
-            'Overlap',
-            rangeslider_id='rangeslider_overlap',
-            default=0.0,
-            range_values=(0, 1),
-            increment=0.01,
-            onchange=rangeslider_overlap_onchange,
-            shadow_width=10
-        )
-        rangeslider_overlap.hide()
-        self.main_frame.pack(rangeslider_overlap, margin=(0, 15))
-
-        def rangeslider_penalty_onchange(s, *args) -> None:
-            assert isinstance(self.problem, RectanglePackingProblemOverlap)
-
-            rangeslider_penalty = self.main_menu.get_widget('rangeslider_penalty')
-            self.problem.penalty_factor = rangeslider_penalty.get_value()
-
-        rangeslider_penalty = self.main_menu.add.range_slider(
-            'Penalty',
-            rangeslider_id='rangeslider_penalty',
-            default=0.0,
-            range_values=(0, 1000),
-            increment=0.1,
-            onchange=rangeslider_penalty_onchange,
-            shadow_width=10
-        )
-        rangeslider_penalty.hide()
-        self.main_frame.pack(rangeslider_penalty, margin=(0, 15))
-
-        label = self.main_menu.add.label("Strategy",
-                                         label_id="selection_strategy_label",
-                                         background_color=pygame_menu.themes.TRANSPARENT_COLOR)
-        label.hide()
-        self.main_frame.pack(label, margin=(0, 15))
-
-        def dropselect_selection_strategy_onchange(s, *args) -> None:
-            self.stop_search()
-
-            dropselect_selection_strategy = self.main_menu.get_widget('selection_strategy')
-            self.problem_type_name = args[0]
-            self.__setup_new_problem()
-
-        dropselect_selection_strategy = self.main_menu.add.dropselect(
-            title='',
-            items=[
-                ('Smallest Position', 'rectangle_packing_greedy_smallest_position'),
-                ('Largest Area', 'rectangle_packing_greedy_largest_area'),
-                ('Both', 'rectangle_packing_greedy_largest_area_smallest_position'),
-                ('Uniform', 'rectangle_packing_greedy_uniform')
-            ],
-            dropselect_id='selection_strategy',
-            onchange=dropselect_selection_strategy_onchange,
-            default=0,
-            padding=0,
-            placeholder='Select',
-            selection_box_height=5,
-            selection_box_width=220,
-            selection_box_inflate=(5, 15),
-            selection_box_margin=0,
-            selection_box_border_color=self.colors['button_bg'],
-            selection_option_font_color=self.colors['font'],
-            selection_box_bgcolor=self.colors['button_bg'],
-            shadow_width=10
-        )
-        dropselect_selection_strategy.set_onmouseover(lambda: dropselect_onmouseover(dropselect_selection_strategy))
-        dropselect_selection_strategy.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_selection_strategy))
-        dropselect_selection_strategy.hide()
-        self.main_frame.pack(dropselect_selection_strategy, margin=(15, 0))
+        btn_configure.set_onmouseover(lambda: button_onmouseover(btn_configure))
+        btn_configure.set_onmouseleave(lambda: button_onmouseleave(btn_configure))
+        self.main_frame.pack(btn_configure, margin=(0, 15))
 
         def run_search():
             btn_search = self.main_menu.get_widget('run_search')
@@ -600,6 +678,21 @@ class RectanglePackingGUI(BaseGUI):
                              [x, y + (reference_size - h) * self.field_size, w * self.field_size, h * self.field_size])
             x += w * self.field_size + margin_vertical
 
+        if 'num_remaining_elements' in self.search_info:
+            num_remaining_elements = self.search_info['num_remaining_elements']
+        else:
+            num_remaining_elements = 0
+
+        text = f"Remaining Elements: {num_remaining_elements}"
+        width = self.font.size(text)[0]
+
+        pygame.draw.rect(self.screen, bg_color, [0, y_offset - 40, 30 + width, 40])
+        text_surface = self.font.render(text, True, self.colors['font'])
+        self.screen.blit(text_surface, (15, y_offset - 30))
+
+    def update_search_info(self, update_dict):
+        self.search_info.update(update_dict)
+
     def __start_search(self):
         self.is_searching = True
         self.search_thread = threading.Thread(target=self.search, args=(self.problem, self))
@@ -609,6 +702,7 @@ class RectanglePackingGUI(BaseGUI):
             self.is_paused = False
         else:
             self.search_start_time = time.time()
+            self.search_info = {}
 
         btn_search = self.main_menu.get_widget('run_search')
         btn_search.set_title('Pause Search')
@@ -686,6 +780,7 @@ class RectanglePackingGUI(BaseGUI):
 
         self.main_menu.resize(w, h, position=(1, 1, False))
         self.problem_config_menu.resize(w, h, position=(1, 1, False))
+        self.algo_config_menu.resize(w, h, position=(1, 1, False))
 
     def set_current_solution(self, solution: RectanglePackingSolution):
         self.current_sol = solution
@@ -708,7 +803,7 @@ class RectanglePackingGUI(BaseGUI):
 
     def set_and_animate_solution(self, sol: RectanglePackingSolution):
         # Identify modified rect and highlight it
-        if isinstance(sol, (RectanglePackingSolutionGeometryBased, RectanglePackingSolutionOverlap)) and sol.move_pending:
+        if isinstance(sol, RectanglePackingSolutionGeometryBased) and sol.move_pending:
             changed_rect_idx = sol.pending_move_params[0]
             self.highlighted_rects[changed_rect_idx] = True
         else:
@@ -718,7 +813,7 @@ class RectanglePackingGUI(BaseGUI):
 
         time.sleep(self.anim_sleep)
 
-        if isinstance(sol, (RectanglePackingSolutionGeometryBased, RectanglePackingSolutionOverlap)):
+        if isinstance(sol, RectanglePackingSolutionGeometryBased):
             sol.apply_pending_move()
 
         # Apply new solution
@@ -780,7 +875,7 @@ class RectanglePackingGUI(BaseGUI):
                         rotated = self.selection_rotated != new_solution.rotations[self.selected_rect_idx]
                         new_solution.move_rect(self.selected_rect_idx, np.array([x, y]), rotated)
                         if self.problem.is_feasible(new_solution):
-                            if isinstance(new_solution, (RectanglePackingSolutionGeometryBased, RectanglePackingProblemOverlap)):
+                            if isinstance(new_solution, RectanglePackingSolutionGeometryBased):
                                 new_solution.apply_pending_move()
                             self.set_current_solution(new_solution)
                             self.selected_rect_idx = None
@@ -1013,7 +1108,8 @@ class RectanglePackingGUI(BaseGUI):
 
         # Display current heuristic value
         heuristic = self.problem.heuristic(self.current_sol)
-        text_surface = self.font.render('Heuristic Value: %.2f' % heuristic, True, self.colors['font'])
+
+        text_surface = self.font.render(f'Heuristic Value: %.2f' % heuristic, True, self.colors['font'])
         self.screen.blit(text_surface, (32, 70))
 
         if self.search_start_time is not None:

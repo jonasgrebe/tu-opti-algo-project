@@ -195,6 +195,60 @@ class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
 
         self.standalone = True  # If False, attributes of this class require deepcopy before any modification
         self.pending_move_params = None
+        self.rectangle_fields = None
+
+    def reset(self, locations=None, rotations=None):
+        super().reset(locations, rotations)
+        self.rectangle_fields = np.zeros((self.problem.num_rects, self.problem.num_rects, self.problem.box_length, self.problem.box_length), dtype=bool)
+        
+
+    def put_rect(self, rect_idx, target_pos, rotated, update_ids=False):
+        """Puts the specified rect to the given target position, rotated accordingly.
+        Ignores whether this put action creates an infeasible solution."""
+
+        assert not self.is_put[rect_idx]
+
+        box_idx = self.get_box_idx_by_pos(target_pos, update_ids)
+
+        self.box_occupancies[box_idx] += self.problem.areas[rect_idx]
+
+        self.box_rect_cnts[box_idx] += 1
+
+        self.box2rects[box_idx].append(rect_idx)
+
+        x, y = target_pos % self.problem.box_length
+        w, h = self.problem.sizes[rect_idx]
+        if rotated:
+            w, h = h, w
+        self.boxes_grid[box_idx, x:x + w, y:y + h] += 1
+
+        self.locations[rect_idx] = target_pos
+        self.rotations[rect_idx] = rotated
+        self.is_put[rect_idx] = True
+
+        self.rectangle_fields[box_idx, rect_idx, :, :] = 0
+        self.rectangle_fields[box_idx, rect_idx, x:x + w, y:y + h] = 1
+
+    def remove_rect(self, rect_idx):
+        assert self.is_put[rect_idx]
+
+        box_idx = self.get_box_idx_by_rect_id(rect_idx)
+
+        self.box_occupancies[box_idx] -= self.problem.areas[rect_idx]
+
+        self.box_rect_cnts[box_idx] -= 1
+
+        self.box2rects[box_idx].remove(rect_idx)
+
+        x, y = self.locations[rect_idx] % self.problem.box_length
+        w, h = self.problem.sizes[rect_idx]
+        if self.rotations[rect_idx]:
+            w, h = h, w
+        self.boxes_grid[box_idx, x:x + w, y:y + h] -= 1
+
+        self.is_put[rect_idx] = False
+
+        self.rectangle_fields[box_idx, rect_idx, :, :] = 0
 
     def set_solution(self, locations, rotations):
         self.build(locations.copy(), rotations.copy())
@@ -222,6 +276,12 @@ class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
 
         new_solution = super().copy(true)
         new_solution.standalone = true
+
+        if true:
+            new_solution.rectangle_fields = self.rectangle_fields.copy()
+        else:
+            new_solution.rectangle_fields = self.rectangle_fields
+
         return new_solution
 
     def make_standalone(self):
@@ -268,12 +328,7 @@ class RectanglePackingSolutionOverlap(RectanglePackingSolution):
         self.move_pending = False
         self.pending_move_params = None
 
-        self.EMPTY_RECTANGLE_BOX_ID = self.problem.num_rects + 255
         self.rectangle_fields = None
-
-    def reset(self, locations=None, rotations=None):
-        super().reset(locations, rotations)
-        self.rectangle_fields = np.zeros((self.problem.num_rects, self.problem.num_rects, self.problem.box_length, self.problem.box_length), dtype=bool)
 
 
     def put_rect(self, rect_idx, target_pos, rotated, update_ids=False):
@@ -354,7 +409,6 @@ class RectanglePackingSolutionOverlap(RectanglePackingSolution):
         new_solution = super().copy(true)
         new_solution.standalone = true
 
-        new_solution.rectangle_fields = self.rectangle_fields.copy()
 
         return new_solution
 
