@@ -290,15 +290,15 @@ class RectanglePackingGUI(BaseGUI):
             self.problem_type_name = args[0]
             self.__setup_new_problem()
 
-            rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
+            #rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
             #rangeslider_penalty = self.algo_config_menu.get_widget('rangeslider_penalty')
 
-            if self.problem_type_name == 'rectangle_packing_geometry_based':
-                rangeslider_overlap.show()
-                #rangeslider_penalty.show()
-            else:
-                rangeslider_overlap.hide()
-                #rangeslider_penalty.hide()
+            #if self.problem_type_name == 'rectangle_packing_geometry_based':
+            #    rangeslider_overlap.show()
+            #    #rangeslider_penalty.show()
+            #else:
+            #    rangeslider_overlap.hide()
+            #    #rangeslider_penalty.hide()
 
         dropselect_neighborhood = self.algo_config_menu.add.dropselect(
             title='',
@@ -324,6 +324,7 @@ class RectanglePackingGUI(BaseGUI):
         dropselect_neighborhood.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_neighborhood))
         self.algo_config_frame.pack(dropselect_neighborhood, margin=(15, 0))
 
+        """
         def rangeslider_overlap_onchange(s, *args) -> None:
 
             rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
@@ -340,7 +341,7 @@ class RectanglePackingGUI(BaseGUI):
         )
         self.algo_config_frame.pack(rangeslider_overlap, margin=(0, 15))
 
-        """
+
         def rangeslider_penalty_onchange(s, *args) -> None:
             assert isinstance(self.problem, RectanglePackingProblemGeometryBased)
 
@@ -495,7 +496,7 @@ class RectanglePackingGUI(BaseGUI):
             dropselect_selection_strategy = self.algo_config_menu.get_widget('selection_strategy')
             dropselect_selection_strategy_label = self.algo_config_menu.get_widget('selection_strategy_label')
 
-            rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
+            #rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
 
             if self.search_algorithm_name == 'local_search':
                 self.problem_type_name = dropselect_neighborhood.get_value()[0][1]
@@ -504,7 +505,7 @@ class RectanglePackingGUI(BaseGUI):
                 dropselect_neighborhood_label.show()
                 dropselect_selection_strategy.hide()
                 dropselect_selection_strategy_label.hide()
-                rangeslider_overlap.show()
+                #rangeslider_overlap.show()
 
             elif self.search_algorithm_name == 'greedy_search':
                 self.problem_type_name = 'rectangle_packing_greedy'
@@ -513,7 +514,7 @@ class RectanglePackingGUI(BaseGUI):
                 dropselect_neighborhood_label.hide()
                 dropselect_selection_strategy.show()
                 dropselect_selection_strategy_label.show()
-                rangeslider_overlap.hide()
+                #rangeslider_overlap.hide()
 
             self.__setup_new_problem()
 
