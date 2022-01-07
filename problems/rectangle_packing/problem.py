@@ -2,9 +2,12 @@ from abc import ABC
 
 from problems.construction import ConstructionProblem
 from problems.neighborhood import NeighborhoodProblem, OptProblem
-from problems.rectangle_packing.solution import RectanglePackingSolutionGeometryBased, \
-    RectanglePackingSolutionRuleBased, RectanglePackingSolutionOverlap, RectanglePackingSolutionGreedy, \
+from problems.rectangle_packing.solution import (
+    RectanglePackingSolutionGeometryBased,
+    RectanglePackingSolutionRuleBased,
+    RectanglePackingSolutionGreedy,
     RectanglePackingSolution
+    )
 
 import numpy as np
 import itertools
@@ -25,6 +28,7 @@ class RectanglePackingProblem(OptProblem, ABC):
         self.__generate(box_length, num_rects, w_min, w_max, h_min, h_max)
 
         self.__heuristic = self.__small_box_position_heuristic
+
 
     def objective_function(self, sol: RectanglePackingSolution):
         """Returns the number of boxes occupied in the current sol. Function symbol f.
@@ -511,9 +515,9 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
                and np.all(sol.rect_order < self.num_rects)
 
 
-class RectanglePackingProblemGreedyStrategy(RectanglePackingProblem, ConstructionProblem):
+class RectanglePackingProblemGreedy(RectanglePackingProblem, ConstructionProblem):
     def __init__(self, *args, **kwargs):
-        super(RectanglePackingProblemGreedyStrategy, self).__init__(*args, **kwargs)
+        super(RectanglePackingProblemGreedy, self).__init__(*args, **kwargs)
 
         self.__costs = self.__smallest_position_costs
 

@@ -8,6 +8,7 @@ import copy
 
 from algos import local_search, greedy_search
 from gui import BaseGUI
+
 from problems.rectangle_packing.problem import (
     RectanglePackingSolution,
     RectanglePackingSolutionGeometryBased,
@@ -17,11 +18,10 @@ from problems.rectangle_packing.problem import (
     RectanglePackingProblem,
     RectanglePackingProblemGeometryBased,
     RectanglePackingProblemRuleBased,
-    RectanglePackingProblemGreedyStrategy
+    RectanglePackingProblemGreedy
     )
 
 ZOOM_STEP_FACTOR = 1.1
-
 
 class RectanglePackingGUI(BaseGUI):
     def __init__(self):
@@ -34,7 +34,7 @@ class RectanglePackingGUI(BaseGUI):
         self.problem_types = {
             'rectangle_packing_geometry_based': RectanglePackingProblemGeometryBased,
             'rectangle_packing_rule_based': RectanglePackingProblemRuleBased,
-            'rectangle_packing_greedy': RectanglePackingProblemGreedyStrategy,
+            'rectangle_packing_greedy': RectanglePackingProblemGreedy,
         }
         self.init_sol = None
 
@@ -398,7 +398,7 @@ class RectanglePackingGUI(BaseGUI):
         def dropselect_selection_strategy_onchange(s, *args) -> None:
             self.stop_search()
 
-            assert isinstance(self.problem, RectanglePackingProblemGreedyStrategy)
+            assert isinstance(self.problem, RectanglePackingProblemGreedy)
 
             dropselect_selection_strategy = self.algo_config_menu.get_widget('selection_strategy')
             self.problem.set_cost_strategy(args[0])
@@ -751,7 +751,7 @@ class RectanglePackingGUI(BaseGUI):
         if not new_instance:
             self.problem.set_instance_params(*instance_params)
 
-        if isinstance(self.problem, RectanglePackingProblemGreedyStrategy):
+        if isinstance(self.problem, RectanglePackingProblemGreedy):
             sol = self.problem.get_empty_solution()
         else:
             sol = self.problem.get_arbitrary_solution()
@@ -833,14 +833,17 @@ class RectanglePackingGUI(BaseGUI):
         return x, y, w, h
 
     def set_and_animate_solution(self, sol: RectanglePackingSolution):
+
         # Identify modified rect and highlight it
         if isinstance(sol, RectanglePackingSolutionGeometryBased) and sol.move_pending:
             changed_rect_idx = sol.pending_move_params[0]
             self.highlighted_rects[changed_rect_idx] = True
-        else:
+        elif isinstance(sol, RectanglePackingSolutionRuleBased):
             diff = np.any(sol.locations != self.current_sol.locations, axis=1) | \
                    (sol.rotations != self.current_sol.rotations)
             self.highlighted_rects[:] = diff
+        elif isinstance(sol, RectanglePackingSolutionGreedy):
+            self.highlighted_rects[sol.last_put_rect] = True
 
         time.sleep(self.anim_sleep)
 

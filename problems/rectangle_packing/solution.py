@@ -2,7 +2,6 @@ from problems.optimization import Solution
 import copy
 import numpy as np
 
-
 class RectanglePackingSolution(Solution):
     def __init__(self, problem):
         super(RectanglePackingSolution, self).__init__()
@@ -13,6 +12,7 @@ class RectanglePackingSolution(Solution):
         self.locations = None
         self.rotations = None
         self.is_put = None
+        self.last_put_rect = None
 
         self.box_ids = None
         self.box_coords = None
@@ -22,6 +22,7 @@ class RectanglePackingSolution(Solution):
         self.box2rects = None
 
         self.boxes_grid = None
+
 
     def reset(self, locations=None, rotations=None):
         if locations is not None:
@@ -80,7 +81,7 @@ class RectanglePackingSolution(Solution):
         self.locations[rect_idx] = target_pos
         self.rotations[rect_idx] = rotated
         self.is_put[rect_idx] = True
-
+        self.last_put_rect = rect_idx
 
     def remove_rect(self, rect_idx):
         assert self.is_put[rect_idx]
@@ -176,6 +177,7 @@ def true_copy(from_sol: RectanglePackingSolution, to_sol: RectanglePackingSoluti
     to_sol.box_rect_cnts = from_sol.box_rect_cnts.copy()
     to_sol.box2rects = copy.deepcopy(from_sol.box2rects)
     to_sol.boxes_grid = from_sol.boxes_grid.copy()
+    to_sol.last_put_rect = from_sol.last_put_rect
 
 
 def ref_copy(from_sol: RectanglePackingSolution, to_sol: RectanglePackingSolution):
@@ -188,6 +190,7 @@ def ref_copy(from_sol: RectanglePackingSolution, to_sol: RectanglePackingSolutio
     to_sol.box_rect_cnts = from_sol.box_rect_cnts
     to_sol.box2rects = from_sol.box2rects
     to_sol.boxes_grid = from_sol.boxes_grid
+    to_sol.last_put_rect = from_sol.last_put_rect
 
 
 class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
@@ -319,104 +322,6 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
         duplicate.rect_order = self.rect_order.copy()
         return duplicate
 
-
-class RectanglePackingSolutionOverlap(RectanglePackingSolution):
-
-    def __init__(self, problem):
-        super(RectanglePackingSolutionOverlap, self).__init__(problem)
-
-        self.standalone = True  # If False, attributes of this class require deepcopy before any modification
-        self.move_pending = False
-        self.pending_move_params = None
-
-        self.rectangle_fields = None
-
-
-    def put_rect(self, rect_idx, target_pos, rotated, update_ids=False):
-        """Puts the specified rect to the given target position, rotated accordingly.
-        Ignores whether this put action creates an infeasible solution."""
-
-        assert not self.is_put[rect_idx]
-
-        box_idx = self.get_box_idx_by_pos(target_pos, update_ids)
-
-        self.box_occupancies[box_idx] += self.problem.areas[rect_idx]
-
-        self.box_rect_cnts[box_idx] += 1
-
-        self.box2rects[box_idx].append(rect_idx)
-
-        x, y = target_pos % self.problem.box_length
-        w, h = self.problem.sizes[rect_idx]
-        if rotated:
-            w, h = h, w
-        self.boxes_grid[box_idx, x:x + w, y:y + h] += 1
-
-        self.locations[rect_idx] = target_pos
-        self.rotations[rect_idx] = rotated
-        self.is_put[rect_idx] = True
-
-        self.rectangle_fields[box_idx, rect_idx, :, :] = 0
-        self.rectangle_fields[box_idx, rect_idx, x:x + w, y:y + h] = 1
-
-
-    def remove_rect(self, rect_idx):
-        assert self.is_put[rect_idx]
-
-        box_idx = self.get_box_idx_by_rect_id(rect_idx)
-
-        self.box_occupancies[box_idx] -= self.problem.areas[rect_idx]
-
-        self.box_rect_cnts[box_idx] -= 1
-
-        self.box2rects[box_idx].remove(rect_idx)
-
-        x, y = self.locations[rect_idx] % self.problem.box_length
-        w, h = self.problem.sizes[rect_idx]
-        if self.rotations[rect_idx]:
-            w, h = h, w
-        self.boxes_grid[box_idx, x:x + w, y:y + h] -= 1
-
-        self.is_put[rect_idx] = False
-
-        self.rectangle_fields[box_idx, rect_idx, :, :] = 0
-
-
-    def set_solution(self, locations, rotations):
-        self.build(locations.copy(), rotations.copy())
-
-    def move_rect(self, rect_idx, target_pos, rotated):
-        """Assumes that this action leads to a feasible solution."""
-
-        if self.move_pending:
-            raise ValueError("Cannot add another pending move if there is already one.")
-        self.move_pending = True
-        self.pending_move_params = rect_idx, target_pos, rotated
-
-    def apply_pending_move(self):
-        if not self.move_pending:
-            return
-
-        rect_idx, target_pos, rotated = self.pending_move_params
-        super().move_rect(rect_idx, target_pos, rotated)
-
-        self.move_pending = False
-        self.pending_move_params = None
-
-    def copy(self, true=False):
-        if self.move_pending:
-            self.apply_pending_move()
-
-        new_solution = super().copy(true)
-        new_solution.standalone = true
-
-
-        return new_solution
-
-    def make_standalone(self):
-        if not self.standalone:
-            true_copy(self, self)
-            self.standalone = True
 
 
 class RectanglePackingSolutionGreedy(RectanglePackingSolution):

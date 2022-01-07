@@ -7,7 +7,6 @@ import time
 
 MINIMUM_IMPROVEMENT = 0.01
 
-
 def local_search(problem: NeighborhoodProblem, gui: BaseGUI = None):
     t = time.time()
 
@@ -51,7 +50,6 @@ def local_search(problem: NeighborhoodProblem, gui: BaseGUI = None):
     print("\nLocal search took %.3f s" % (time.time() - t))
 
     # Step 3: deliver final solution (local optimum)
-    print(problem.is_feasible(current_solution))
     return current_solution
 
 
@@ -95,14 +93,14 @@ def get_next_better_neighbor(problem: NeighborhoodProblem, solution):
             is_significantly_better = neighbors_values[best_neighbor_idx] > value + MINIMUM_IMPROVEMENT
 
             if neighbors_values[best_neighbor_idx] >= best_value_so_far:
-                best_neighbor_so_far = neighbors[best_neighbor_idx].copy()
+                best_neighbor_so_far = neighbors[best_neighbor_idx]
                 best_value_so_far = neighbors_values[best_neighbor_idx]
         else:
             best_neighbor_idx = np.argmin(neighbors_values)
             is_significantly_better = neighbors_values[best_neighbor_idx] < value - MINIMUM_IMPROVEMENT
 
             if neighbors_values[best_neighbor_idx] <= best_value_so_far:
-                best_neighbor_so_far = neighbors[best_neighbor_idx].copy()
+                best_neighbor_so_far = neighbors[best_neighbor_idx]
                 best_value_so_far = neighbors_values[best_neighbor_idx]
 
         if is_significantly_better or problem.is_relaxation_active():
