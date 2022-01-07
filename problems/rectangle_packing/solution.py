@@ -337,10 +337,7 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
 class RectanglePackingSolutionGreedy(RectanglePackingSolution):
     def __init__(self, problem):
         super(RectanglePackingSolutionGreedy, self).__init__(problem)
-
-        # for visualiszation purposes pre-order sizes by area size
-        sizes = self.problem.sizes[np.argsort(-self.problem.areas)].copy()
-        self.problem.set_instance_params(sizes)
+        
 
     def get_remaining_elements(self):
         return np.where(~self.is_put)[0]

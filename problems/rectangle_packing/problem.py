@@ -67,7 +67,6 @@ class RectanglePackingProblem(OptProblem, ABC):
 
     def set_instance_params(self, sizes):
         self.sizes = sizes
-
         self.areas = self.sizes[:, 0] * self.sizes[:, 1]
         oversize = self.box_length // 2
         self.top_dogs = np.all(self.sizes > oversize, axis=1)  # "Platzhirsche"
@@ -415,8 +414,8 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
                 relevant_locs, _ = self.place(rect_size=self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1],
                                               boxes_grid=sol.boxes_grid,
                                               selected_box_ids=selected_box_ids,
-                                              rectangle_fields=sol.rectangle_fields if self.allowed_overlap > 0 else None,
-                                              box2rects=sol.box2rects if self.allowed_overlap > 0 else None,
+                                              rectangle_fields=sol.rectangle_fields,
+                                              box2rects=sol.box2rects,
                                               box_coords=sol.box_coords,
                                               allowed_overlap=self.allowed_overlap)
 
