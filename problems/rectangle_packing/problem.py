@@ -218,19 +218,19 @@ class RectanglePackingProblem(OptProblem, ABC):
 
     def __small_box_position_heuristic(self, sol: RectanglePackingSolution):
         pos_sum = sol.locations.sum()
-        box_pos_sum = (sol.locations % self.box_length).sum()
+        box_pos_sum = (sol.locations // self.box_length).sum()
 
         if sol.move_pending:
             rect_idx, target_pos, _ = sol.pending_move_params
-            target_box_pos = target_pos % self.box_length
+            target_box_pos = target_pos // self.box_length
 
             source_pos = sol.locations[rect_idx]
-            source_box_pos = source_pos % self.box_length
+            source_box_pos = source_pos // self.box_length
 
             pos_sum += target_pos.sum() - source_pos.sum()
             box_pos_sum += target_box_pos.sum() - source_box_pos.sum()
 
-        cost = pos_sum
+        cost = box_pos_sum + 1e-2 * pos_sum
         return cost
 
 
