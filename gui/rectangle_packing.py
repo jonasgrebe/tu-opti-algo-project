@@ -672,7 +672,7 @@ class RectanglePackingGUI(BaseGUI):
         return x, y, w, h
 
     def __render_rectangle_preview(self):
-        if self.search_algorithm_name != 'greedy_search':
+        if self.problem_type_name not in ('rectangle_packing_greedy', 'rectangle_packing_rule_based'):
             return
 
         bg_color = [0, 0, 0]
@@ -691,10 +691,12 @@ class RectanglePackingGUI(BaseGUI):
         x = margin_left
         y = y_offset + margin_top
 
-        for rect_idx in range(self.problem.num_rects):
+        rect_order = range(self.problem.num_rects) if self.problem_type_name == 'rectangle_packing_greedy' else self.current_sol.rect_order
+
+        for rect_idx in rect_order:
             w, h = self.problem.sizes[rect_idx]
 
-            if self.current_sol.is_put[rect_idx]:
+            if self.current_sol.is_put[rect_idx] and self.problem_type_name == 'rectangle_packing_greedy':
                 continue
 
             if x + w * self.field_size + margin_vertical >= self.screen.get_width():
@@ -709,17 +711,18 @@ class RectanglePackingGUI(BaseGUI):
                              [x, y + (reference_size - h) * self.field_size, w * self.field_size, h * self.field_size])
             x += w * self.field_size + margin_vertical
 
-        if 'num_remaining_elements' in self.search_info:
-            num_remaining_elements = self.search_info['num_remaining_elements']
-        else:
-            num_remaining_elements = 0
+        if self.problem_type_name == "rectangle_packing_greedy":
+            if 'num_remaining_elements' in self.search_info:
+                num_remaining_elements = self.search_info['num_remaining_elements']
+            else:
+                num_remaining_elements = 0
 
-        text = f"Remaining Elements: {num_remaining_elements}"
-        width = self.font.size(text)[0]
+            text = f"Remaining Elements: {num_remaining_elements}"
+            width = self.font.size(text)[0]
 
-        pygame.draw.rect(self.screen, bg_color, [0, y_offset - 40, 30 + width, 40])
-        text_surface = self.font.render(text, True, self.colors['font'])
-        self.screen.blit(text_surface, (15, y_offset - 30))
+            pygame.draw.rect(self.screen, bg_color, [0, y_offset - 40, 30 + width, 40])
+            text_surface = self.font.render(text, True, self.colors['font'])
+            self.screen.blit(text_surface, (15, y_offset - 30))
 
     def update_search_info(self, update_dict):
         self.search_info.update(update_dict)
@@ -839,9 +842,8 @@ class RectanglePackingGUI(BaseGUI):
             changed_rect_idx = sol.pending_move_params[0]
             self.highlighted_rects[changed_rect_idx] = True
         elif isinstance(sol, RectanglePackingSolutionRuleBased):
-            diff = np.any(sol.locations != self.current_sol.locations, axis=1) | \
-                   (sol.rotations != self.current_sol.rotations)
-            self.highlighted_rects[:] = diff
+            diff = (sol.rect_order != self.current_sol.rect_order)
+            self.highlighted_rects[sol.moved_rect_ids] = True
         elif isinstance(sol, RectanglePackingSolutionGreedy):
             self.highlighted_rects[sol.last_put_rect] = True
 

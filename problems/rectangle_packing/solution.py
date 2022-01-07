@@ -298,6 +298,15 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
     def __init__(self, problem):
         super(RectanglePackingSolutionRuleBased, self).__init__(problem)
         self.rect_order = None
+        self.moved_rect_ids = None
+
+    def build(self, locations, rotations):
+        """Builds all the box information (such as self.boxes_grid) from rect
+        locations and rect rotations."""
+        for rect_idx in range(self.problem.num_rects):
+            if self.is_put[rect_idx]:
+                continue
+            self.put_rect(rect_idx, self.locations[rect_idx], self.rotations[rect_idx], update_ids=True)
 
     def set_rect_selection_order(self, rect_selection_order):
         self.rect_order = rect_selection_order
@@ -314,8 +323,9 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
         self.rect_order[target_order_pos] = rect_idx
 
         # Remove touched rects from currently built solution
-        moved_rect_ids = self.rect_order[min(source_order_pos, target_order_pos):]
-        self.remove_rects(moved_rect_ids)
+        self.moved_rect_ids = self.rect_order[min(source_order_pos, target_order_pos):]
+
+        self.remove_rects(self.moved_rect_ids)
 
     def copy(self, true=True):
         duplicate = super().copy(True)
@@ -327,6 +337,10 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
 class RectanglePackingSolutionGreedy(RectanglePackingSolution):
     def __init__(self, problem):
         super(RectanglePackingSolutionGreedy, self).__init__(problem)
+
+        # for visualiszation purposes pre-order sizes by area size
+        sizes = self.problem.sizes[np.argsort(-self.problem.areas)].copy()
+        self.problem.set_instance_params(sizes)
 
     def get_remaining_elements(self):
         return np.where(~self.is_put)[0]

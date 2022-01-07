@@ -455,9 +455,9 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
             if min_area == max_area:
                 target_order_pos = 0
             else:
-                # target_order_pos = int((self.num_rects - 1) * (1 - (rect_area - min_area) /
-                #                                                (max_area - min_area)))
-                target_order_pos = 0
+                target_order_pos = int((self.num_rects - 1) * (1 - (rect_area - min_area) /
+                                                                (max_area - min_area)))
+                #target_order_pos = 0
             new_sol = sol.copy()
             new_sol.move_rect_to_order_pos(rect_idx, target_order_pos)
             yield [new_sol]
