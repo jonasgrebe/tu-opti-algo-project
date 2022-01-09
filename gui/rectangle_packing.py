@@ -519,10 +519,14 @@ class RectanglePackingGUI(BaseGUI):
             self.search_algorithm_name = args[0]
             self.search = self.search_algorithms[self.search_algorithm_name]
 
+
+            dropselect_neighborhood = self.algo_config_menu.get_widget('neighborhood')
             dropselect_neighborhood = self.algo_config_menu.get_widget('neighborhood')
             dropselect_neighborhood_label = self.algo_config_menu.get_widget('neighborhood_label')
             dropselect_selection_strategy = self.algo_config_menu.get_widget('selection_strategy')
             dropselect_selection_strategy_label = self.algo_config_menu.get_widget('selection_strategy_label')
+
+            btn_relaxation = self.algo_config_menu.get_widget('toggle_relaxation')
 
             #rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
 
@@ -533,7 +537,9 @@ class RectanglePackingGUI(BaseGUI):
                 dropselect_neighborhood_label.show()
                 dropselect_selection_strategy.hide()
                 dropselect_selection_strategy_label.hide()
-                #rangeslider_overlap.show()
+
+                if not isinstance(self.problem, RectanglePackingSolutionRuleBased):
+                    btn_relaxation.show()
 
             elif self.search_algorithm_name == 'greedy_search':
                 self.problem_type_name = 'rectangle_packing_greedy'
@@ -542,7 +548,7 @@ class RectanglePackingGUI(BaseGUI):
                 dropselect_neighborhood_label.hide()
                 dropselect_selection_strategy.show()
                 dropselect_selection_strategy_label.show()
-                #rangeslider_overlap.hide()
+                btn_relaxation.hide()
 
             self.__setup_new_problem()
 
@@ -749,10 +755,18 @@ class RectanglePackingGUI(BaseGUI):
         if not new_instance:
             instance_params = self.problem.get_instance_params()
 
+        if self.problem is not None:
+            relaxation_enabled = self.problem.is_relaxation_enabled()
+        else:
+            relaxation_enabled = False
+
         self.problem = self.problem_types[self.problem_type_name](**self.problem_config)
 
         if not new_instance:
             self.problem.set_instance_params(*instance_params)
+
+        if relaxation_enabled:
+            self.problem.toggle_relaxation()
 
         if isinstance(self.problem, RectanglePackingProblemGreedy):
             sol = self.problem.get_empty_solution()
