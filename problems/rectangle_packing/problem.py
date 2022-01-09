@@ -177,9 +177,6 @@ class RectanglePackingProblem(OptProblem, ABC):
         return self.__heuristic(sol)
 
 
-    def update_penalty_factor(self, step):
-        self.penalty_factor = step ** 2
-
     def __rect_cnt_heuristic(self, sol: RectanglePackingSolution):
         """Depends on rectangle count per box."""
         if sol.move_pending:
@@ -245,8 +242,8 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         if not self.relaxation_enabled:
             return
 
-        self.penalty_factor = step ** 3
-        self.allowed_overlap = np.exp(-step)
+        self.penalty_factor = min(1e-3 * step ** 2, 10.0)
+        self.allowed_overlap = np.exp(- 1e-1 * step)
         self.allowed_overlap = round(self.allowed_overlap, 2)
 
     def reset_relaxation(self):
@@ -265,32 +262,30 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
     def toggle_relaxation(self):
         self.relaxation_enabled = not self.relaxation_enabled
 
+    def penalty(self, sol):
+        if sol.move_pending:
+            rect_idx, target_pos, rotated = sol.pending_move_params
+            orig_pos = sol.locations[rect_idx]
+            sol.apply_pending_move()
+
+            boxes_grid = sol.boxes_grid.copy()
+
+            sol.move_rect(rect_idx, orig_pos, rotated)
+            sol.apply_pending_move()
+            sol.move_rect(rect_idx, target_pos, rotated)
+        else:
+            boxes_grid = sol.boxes_grid
+
+        penalty = np.sum(boxes_grid[boxes_grid > 1] - 1)
+        return self.penalty_factor * penalty
+
     def heuristic(self, sol: RectanglePackingSolutionGeometryBased):
         h = super().heuristic(sol)
 
         if self.allowed_overlap == 0 or not self.relaxation_enabled:
             return h
 
-        def penalty(sol):
-            if sol.move_pending:
-                rect_idx, target_pos, rotated = sol.pending_move_params
-                orig_pos = sol.locations[rect_idx]
-                sol.apply_pending_move()
-
-                boxes_grid = sol.boxes_grid.copy()
-
-                sol.move_rect(rect_idx, orig_pos, rotated)
-                sol.apply_pending_move()
-                sol.move_rect(rect_idx, target_pos, rotated)
-            else:
-                boxes_grid = sol.boxes_grid
-
-            penalty = np.sum(boxes_grid[boxes_grid > 1] - 1)
-            return penalty
-
-        p = self.penalty_factor * penalty(sol)
-
-        # print("HEURISTIC:", h, "PENALTY:", p, "OVERLAP:", self.allowed_overlap)
+        p = self.penalty(sol)
 
         return h + p
 
@@ -395,7 +390,10 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
 
         # ---- Preprocessing: Determine a good rect selection order ----
-        rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=1.0, keep_top_dogs=True)
+        #rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=1.0, keep_top_dogs=True)
+        # TODO: For now random
+        rect_ids = list(range(self.num_rects))
+        np.random.shuffle(rect_ids)
 
         # ---- Check placements using sliding window approach ----
         for rect_idx in rect_ids:
@@ -444,7 +442,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
         if not sol.all_rects_put():
             self.put_all_rects(sol)
 
-        rect_selection = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=0.9, keep_top_dogs=True)
+        rect_selection = self.get_rect_selection_order(sol.boxes_grid, sol.box_occupancies, sol.box2rects, occupancy_threshold=0.9, keep_top_dogs=True)
         rect_areas = self.get_rect_areas()
         max_area = max(rect_areas)
         min_area = min(rect_areas)

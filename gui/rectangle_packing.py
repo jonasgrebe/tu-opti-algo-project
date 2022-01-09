@@ -1148,6 +1148,19 @@ class RectanglePackingGUI(BaseGUI):
         text_surface = self.font.render(f'Heuristic Value: %.2f' % heuristic, True, self.colors['font'])
         self.screen.blit(text_surface, (32, 70))
 
+        if isinstance(self.problem, RectanglePackingProblemGeometryBased):
+
+            if self.problem.is_relaxation_enabled():
+                penalty = self.problem.penalty(self.current_sol)
+
+                text_surface = self.font.render(f'Penalty Value: %.2f' % penalty, True, self.colors['font'])
+                self.screen.blit(text_surface, (32, 108))
+                text_surface = self.font.render(f'Allowed Overlap: %.3f' % self.problem.allowed_overlap, True, self.colors['font'])
+                self.screen.blit(text_surface, (32, 250))
+                text_surface = self.font.render(f'Penalty Factor: %.3f' % self.problem.penalty_factor, True, self.colors['font'])
+                self.screen.blit(text_surface, (32, 288))
+
+
         if self.search_start_time is not None:
             if self.is_searching:
                 elapsed = time.time() - self.search_start_time
@@ -1166,14 +1179,15 @@ class RectanglePackingGUI(BaseGUI):
         # Display if current solution is optimal
         if self.problem.is_optimal(self.current_sol):
             text_surface = self.font.render('This solution is optimal.', True, self.colors['font'])
-            self.screen.blit(text_surface, (32, 108))
+            self.screen.blit(text_surface, (32, 204))
 
         # FPS
         t = time.time()
         during_last_sec = (t - self.frame_times) < 1
         fps = np.sum(during_last_sec)
-        text_surface = self.font.render('FPS: %d' % int(fps), True, self.colors['font'])
-        self.screen.blit(text_surface, (32, 146))
+        text = 'FPS: %d' % int(fps)
+        text_surface = self.font.render(text, True, self.colors['font'])
+        self.screen.blit(text_surface, (self.screen.get_width() -  self.font.size(text)[0] - 32, 32))
 
     def mouse_pos_to_field_coords(self, mouse_pos):
         field_y = mouse_pos[1] - self.scr_marg_top - self.cam_pos[1]
