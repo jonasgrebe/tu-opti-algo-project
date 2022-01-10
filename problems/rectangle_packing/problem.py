@@ -442,7 +442,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
         if not sol.all_rects_put():
             self.put_all_rects(sol)
 
-        rect_selection = self.get_rect_selection_order(sol.boxes_grid, sol.box_occupancies, sol.box2rects, occupancy_threshold=0.9, keep_top_dogs=True)
+        rect_selection = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=0.9, keep_top_dogs=True)
         rect_areas = self.get_rect_areas()
         max_area = max(rect_areas)
         min_area = min(rect_areas)
@@ -476,7 +476,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
         box_capacity = self.box_length ** 2
 
         box_selection = np.where((sol.box_occupancies > 0) &
-                                 (sol.box_occupancies <= box_capacity - rect_area))
+                                 (sol.box_occupancies <= box_capacity - rect_area * (1 - self.allowed_overlap)))
 
         # Add an empty box to selection (such a box always exists ir rect_idx isn't put yet)
         box_selection = np.append(box_selection, [sol.get_empty_box_ids()[0]])

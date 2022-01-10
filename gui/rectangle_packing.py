@@ -619,7 +619,11 @@ class RectanglePackingGUI(BaseGUI):
 
         def rangeslider_anim_speed_onchange(s, *args) -> None:
             rangeslider_animation_speed = self.main_menu.get_widget('rangeslider_animation_speed')
-            self.anim_sleep = 3 * (1 - int(rangeslider_animation_speed.get_value()) / 100)
+            MAX_SLEEP_IN_SEC = 2
+            value = int(rangeslider_animation_speed.get_value())
+            self.anim_sleep = MAX_SLEEP_IN_SEC * 1 / (value + 0.01)
+            rangeslider_animation_speed.set_value(value)
+
 
         rangeslider_anim_speed = self.main_menu.add.range_slider(
             'Speed',
