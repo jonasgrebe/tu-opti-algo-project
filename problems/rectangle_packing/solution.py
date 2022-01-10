@@ -2,6 +2,7 @@ from problems.optimization import Solution
 import copy
 import numpy as np
 
+
 class RectanglePackingSolution(Solution):
     def __init__(self, problem):
         super(RectanglePackingSolution, self).__init__()

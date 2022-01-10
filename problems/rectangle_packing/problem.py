@@ -217,20 +217,20 @@ class RectanglePackingProblem(OptProblem, ABC):
         return np.sum(cost)
 
     def __small_box_position_heuristic(self, sol: RectanglePackingSolution):
-        pos_sum = sol.locations.sum()
-        box_pos_sum = (sol.locations // self.box_length).sum()
+        # pos_sum = sol.locations.sum()
+        # box_pos_sum = (sol.locations // self.box_length).sum()
+
+        x, y = (sol.locations // self.box_length).T
 
         if sol.move_pending:
             rect_idx, target_pos, _ = sol.pending_move_params
-            target_box_pos = target_pos // self.box_length
+            target_x, target_y = target_pos // self.box_length
 
-            source_pos = sol.locations[rect_idx]
-            source_box_pos = source_pos // self.box_length
+            x[rect_idx] = target_x
+            y[rect_idx] = target_y
 
-            pos_sum += target_pos.sum() - source_pos.sum()
-            box_pos_sum += target_box_pos.sum() - source_box_pos.sum()
-
-        cost = self.box_length * self.num_rects * box_pos_sum + pos_sum
+        box_ids = x + self.box_length * y
+        cost = np.sum(box_ids)
         return cost
 
 
@@ -246,7 +246,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         if not self.relaxation_enabled:
             return
 
-        self.penalty_factor = min(1e-3 * step ** 2, 10.0)
+        self.penalty_factor = 1e-3 * step ** 2
         self.allowed_overlap = np.exp(- 1e-1 * step)
         self.allowed_overlap = round(self.allowed_overlap, 2)
 
@@ -538,6 +538,12 @@ class RectanglePackingProblemGreedy(RectanglePackingProblem, ConstructionProblem
         rect_idx, target_pos, _ = e
         return - np.prod(self.sizes[rect_idx]) + sum(target_pos)
 
+    def __lowest_box_id_costs(self, e):
+        _, target_pos, _ = e
+        x, y = target_pos // self.box_length
+        box_id = x + self.box_length * y
+        return box_id
+
     def __uniform_costs(self, e):
         return 0
 
@@ -550,6 +556,8 @@ class RectanglePackingProblemGreedy(RectanglePackingProblem, ConstructionProblem
             self.__costs = self.__smallest_position_plus_largest_area_costs
         elif cost_strategy_name == 'uniform_costs_strategy':
             self.__costs = self.__uniform_costs
+        elif cost_strategy_name == 'lowest_box_id_costs_strategy':
+            self.__costs = self.__lowest_box_id_costs
 
     def costs(self, e):
         return self.__costs(e)

@@ -416,7 +416,8 @@ class RectanglePackingGUI(BaseGUI):
                 ('Position', 'smallest_position_costs_strategy'),
                 ('Largest Area', 'largest_area_costs_strategy'),
                 ('Position + Largest Area', 'smallest_position_plus_largest_area_costs_strategy'),
-                ('Uniform', 'uniform_costs_strategy')
+                ('Uniform', 'uniform_costs_strategy'),
+                ('Lowest Box ID', 'lowest_box_id_costs_strategy')
             ],
             dropselect_id='selection_strategy',
             onchange=dropselect_selection_strategy_onchange,
