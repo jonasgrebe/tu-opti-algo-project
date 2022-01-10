@@ -59,7 +59,7 @@ class RectanglePackingProblem(OptProblem, ABC):
     def is_relaxation_enabled(self):
         return False
 
-    def toggle_relaxation(self):
+    def toggle_relaxation(self, value):
         pass
 
     def get_instance_params(self):
@@ -263,8 +263,11 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
     def is_relaxation_enabled(self):
         return self.relaxation_enabled
 
-    def toggle_relaxation(self):
-        self.relaxation_enabled = not self.relaxation_enabled
+    def toggle_relaxation(self, value: bool = None):
+        if value is not None:
+            self.relaxation_enabled = None
+        else:
+            self.relaxation_enabled = not self.relaxation_enabled
 
     def penalty(self, sol):
         if sol.move_pending:
@@ -525,6 +528,7 @@ class RectanglePackingProblemGreedy(RectanglePackingProblem, ConstructionProblem
         super(RectanglePackingProblemGreedy, self).__init__(*args, **kwargs)
 
         self.__costs = self.__smallest_position_costs
+        self.strategy_name = 'smallest_position_costs_strategy'
 
     def __smallest_position_costs(self, e):
         _, target_pos, _ = e
@@ -547,17 +551,21 @@ class RectanglePackingProblemGreedy(RectanglePackingProblem, ConstructionProblem
     def __uniform_costs(self, e):
         return 0
 
-    def set_cost_strategy(self, cost_strategy_name):
-        if cost_strategy_name == 'smallest_position_costs_strategy':
+    def set_strategy(self, strategy_name):
+        if strategy_name == 'smallest_position_costs':
             self.__costs = self.__smallest_position_costs
-        elif cost_strategy_name == 'largest_area_costs_strategy':
+        elif strategy_name == 'largest_area_costs':
             self.__costs = self.__largest_area_costs
-        elif cost_strategy_name == 'smallest_position_plus_largest_area_costs_strategy':
+        elif strategy_name == 'smallest_position_plus_largest_area_costs':
             self.__costs = self.__smallest_position_plus_largest_area_costs
-        elif cost_strategy_name == 'uniform_costs_strategy':
+        elif strategy_name == 'uniform_costs':
             self.__costs = self.__uniform_costs
-        elif cost_strategy_name == 'lowest_box_id_costs_strategy':
+        elif strategy_name == 'lowest_box_id_costs':
             self.__costs = self.__lowest_box_id_costs
+        else:
+            raise IllegalArgumentError
+
+        self.strategy_name = strategy_name
 
     def costs(self, e):
         return self.__costs(e)
@@ -590,37 +598,6 @@ class RectanglePackingProblemGreedy(RectanglePackingProblem, ConstructionProblem
     def filter_elements(self, sol, elements, e):
         return list(filter(lambda x: x[0] != e[0], elements))
 
-    def filter_elements_with_numpy(self, sol, elements, e):
-        elements = elements[np.where(elements[:, 0] != e[0])] # list(filter(lambda x: x[0] != e[0], elements))
-
-        e_rect_idx, e_pos, e_rotated = e
-        e_w, e_h = self.sizes[e_rect_idx]
-        if e_rotated:
-            e_w, e_h = e_h, e_w
-
-        e_left, e_right = e_pos[0], e_pos[0] + e_w
-        e_top, e_bottom = e_pos[1], e_pos[1] + e_h
-
-        element_sizes = self.sizes[elements[:, 0].astype(int)]
-        element_rotated = elements[:, 2].astype(bool)
-        element_sizes[element_rotated] = element_sizes[element_rotated][:, ::-1]
-
-        element_w, element_h = element_sizes[:, 0], element_sizes[:, 1]
-
-        element_pos = np.vstack(elements[:, 1])
-        element_x, element_y = element_pos[:, 0], element_pos[:, 1]
-
-        element_left, element_right = element_x, element_x + element_w
-        element_top, element_bottom = element_y, element_y + element_h
-
-        overlapping_with_e = np.logical_and(element_left < element_right, e_right > element_left)
-        overlapping_with_e = np.logical_and(overlapping_with_e, e_top > element_bottom)
-        overlapping_with_e = np.logical_and(overlapping_with_e, e_bottom < element_top)
-
-        elements = elements[~overlapping_with_e]
-
-        return elements
-
     def is_independent(self, sol, e):
         rect_idx, target_pos, rotated = e
 
@@ -646,56 +623,88 @@ class RectanglePackingProblemGreedy(RectanglePackingProblem, ConstructionProblem
         sol.reset()
         return sol
 
-    # Deprecated
-    def get_expansion(self, sol: RectanglePackingSolutionGreedy):
-        return list(itertools.chain(*list(self.get_next_expansions(sol))))
 
-    # Deprecated
-    def get_next_expansions(self, sol: RectanglePackingSolutionGreedy):
+class RectanglePackingProblemGreedyFast(RectanglePackingProblem):
+    def __init__(self, *args, **kwargs):
+        super(RectanglePackingProblemGreedyFast, self).__init__(*args, **kwargs)
+
+        self.__costs = self.__largest_rect_costs
+        self.strategy_name = 'largest_rectangle_first'
+
+
+    def get_elements(self):
+        return list(range(self.num_rects))
+
+
+    def set_strategy(self, strategy_name):
+        if strategy_name == 'largest_rectangle_first':
+            self.__costs = self.__largest_rect_costs
+        elif strategy_name == 'smallest_rectangle_first':
+            self.__costs = self.__smallest_rect_costs
+        elif strategy_name == 'uniform_rectangle':
+            self.__costs = self.__uniform_rect_costs
+        else:
+            raise IllegalArgumentError
+
+        self.strategy_name = strategy_name
+
+    def costs(self, rect_idxs):
+        return self.__costs(rect_idxs)
+
+    def __largest_rect_costs(self, rect_idx):
+        return - self.areas[rect_idx]
+
+    def __smallest_rect_costs(self, rect_idx):
+        return self.areas[rect_idx]
+
+    def __uniform_rect_costs(self, rect_idx):
+        return 0
+
+    def is_feasible(self, sol: RectanglePackingSolutionGreedy):
+        rect_id_set = set(list(sol.rect_order))
+        return len(rect_id_set) == self.num_rects \
+               and np.all(sol.rect_order >= 0) \
+               and np.all(sol.rect_order < self.num_rects)
+
+    def get_empty_solution(self):
+        sol = RectanglePackingSolutionGreedy(self)
+        sol.reset()
+        return sol
+
+    def get_expansion(self, sol: RectanglePackingSolutionGreedy):
         """Returns expansion (partial sols obtained by appending an element) of the given (partial) sol."""
         ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
+        ordered_by_idx = ordered_by_occupancy.sort()
 
-        # ---- Determine a good rect selection order ----
-        remaining_rect_ids = sol.get_remaining_elements()
+        box_capacity = self.box_length ** 2
 
-        # strategy: take largest rectangle first
-        areas = np.prod(self.sizes[remaining_rect_ids], axis=1)
-        largest_rect_idx = remaining_rect_ids[np.argmax(areas)]
+        # ---- Apply Greedy Sorting Strategy ----
+        rect_idxs = sol.get_remaining_elements()
+        next_rect_idx = sorted(rect_idxs, key=self.costs)[0]
 
         # Select the n most promising boxes
-        box_capacity = self.box_length ** 2
-        max_occupancy = box_capacity - self.areas[largest_rect_idx]
+        max_occupancy = box_capacity - self.areas[next_rect_idx]
         promising_boxes = sol.box_occupancies <= max_occupancy  # drop boxes which are too full
 
         sorted_box_ids = ordered_by_occupancy
         selected_box_ids = sorted_box_ids[promising_boxes[ordered_by_occupancy]]
-        selected_box_ids = selected_box_ids[:MAX_CONSIDERED_BOXES]  # take at most a certain number of boxes
-
-        sols = []
 
         for rotate in [False, True]:
-            size = self.sizes[largest_rect_idx]
-            if rotate:
-                size = size[::-1]
 
             # Identify all locations which are allowed for placement
-            relevant_locs, _ = self.place(rect_size=size,
+            relevant_locs, _ = self.place(rect_size=self.sizes[next_rect_idx] if not rotate else self.sizes[next_rect_idx][::-1],
                                           boxes_grid=sol.boxes_grid,
                                           selected_box_ids=selected_box_ids,
                                           box_coords=sol.box_coords)
 
-            # TODO: Think about this part:
-            # Prune abundant options
-            relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
+            if len(relevant_locs) > 0:
+                loc = relevant_locs[0]
 
-            # Generate expanded partial sols
-            for loc in relevant_locs:
                 new_sol = sol.copy()
-                new_sol.put_rect(largest_rect_idx, loc, rotate)
+                new_sol.put_rect(next_rect_idx, loc, rotate)
                 # assert self.is_feasible(new_sol)
-                sols += [new_sol]
 
-            yield [min(sols, key=self.heuristic)]
+                return new_sol
 
 
 

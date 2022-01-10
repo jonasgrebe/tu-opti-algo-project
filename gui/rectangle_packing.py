@@ -6,7 +6,7 @@ import numpy as np
 import json
 import copy
 
-from algos import local_search, greedy_search
+from algos import local_search, greedy_search, greedy_search_fast
 from gui import BaseGUI
 
 from problems.rectangle_packing.problem import (
@@ -18,8 +18,11 @@ from problems.rectangle_packing.problem import (
     RectanglePackingProblem,
     RectanglePackingProblemGeometryBased,
     RectanglePackingProblemRuleBased,
-    RectanglePackingProblemGreedy
+    RectanglePackingProblemGreedy,
+    RectanglePackingProblemGreedyFast
     )
+
+clock = pygame.time.Clock()
 
 ZOOM_STEP_FACTOR = 1.1
 
@@ -34,9 +37,11 @@ class RectanglePackingGUI(BaseGUI):
         self.problem_types = {
             'rectangle_packing_geometry_based': RectanglePackingProblemGeometryBased,
             'rectangle_packing_rule_based': RectanglePackingProblemRuleBased,
-            'rectangle_packing_greedy': RectanglePackingProblemGreedy,
+            'rectangle_packing_greedy': RectanglePackingProblemGreedyFast
         }
         self.init_sol = None
+
+        self.algo_config = dict(heuristic='box_occupancy_heuristic', neighborhood='geometry_based', strategy='uniform')
 
         self.current_sol = None
         self.rect_dims = None
@@ -59,7 +64,7 @@ class RectanglePackingGUI(BaseGUI):
         self.search = local_search  # the search algorithm routine
         self.search_algorithms = {
             'local_search': local_search,
-            'greedy_search': greedy_search
+            'greedy_search': greedy_search_fast
         }
 
         self.is_searching = False
@@ -405,19 +410,27 @@ class RectanglePackingGUI(BaseGUI):
         def dropselect_selection_strategy_onchange(s, *args) -> None:
             self.stop_search()
 
-            assert isinstance(self.problem, RectanglePackingProblemGreedy)
+            assert isinstance(self.problem, (RectanglePackingProblemGreedy, RectanglePackingProblemGreedyFast))
 
             dropselect_selection_strategy = self.algo_config_menu.get_widget('selection_strategy')
-            self.problem.set_cost_strategy(args[0])
+            self.problem.set_strategy(args[0])
 
+        """
+        items=[
+            ('Position', 'smallest_position_costs_strategy'),
+            ('Largest Area', 'largest_area_costs_strategy'),
+            ('Position + Largest Area', 'smallest_position_plus_largest_area_costs_strategy'),
+            ('Uniform', 'uniform_costs_strategy'),
+            ('Lowest Box ID', 'lowest_box_id_costs_strategy')
+        ],
+        """
         dropselect_selection_strategy = self.algo_config_menu.add.dropselect(
             title='',
+
             items=[
-                ('Position', 'smallest_position_costs_strategy'),
-                ('Largest Area', 'largest_area_costs_strategy'),
-                ('Position + Largest Area', 'smallest_position_plus_largest_area_costs_strategy'),
-                ('Uniform', 'uniform_costs_strategy'),
-                ('Lowest Box ID', 'lowest_box_id_costs_strategy')
+                ('Largest First', 'largest_rectangle_first'),
+                ('Smallest First', 'smallest_rectangle_first'),
+                ('Random', 'random_rectangle'),
             ],
             dropselect_id='selection_strategy',
             onchange=dropselect_selection_strategy_onchange,
@@ -492,15 +505,15 @@ class RectanglePackingGUI(BaseGUI):
                                                      align=pygame_menu.locals.ALIGN_RIGHT)
         self.main_frame._relax = True
 
-        btn_configure = self.main_menu.add.button(
+        btn_configure_problem = self.main_menu.add.button(
             title='Configure Problem',
             action=self.problem_config_menu,
             button_id='configure_problem',
             shadow_width=10
         )
-        btn_configure.set_onmouseover(lambda: button_onmouseover(btn_configure))
-        btn_configure.set_onmouseleave(lambda: button_onmouseleave(btn_configure))
-        self.main_frame.pack(btn_configure, margin=(0, 15))
+        btn_configure_problem.set_onmouseover(lambda: button_onmouseover(btn_configure_problem))
+        btn_configure_problem.set_onmouseleave(lambda: button_onmouseleave(btn_configure_problem))
+        self.main_frame.pack(btn_configure_problem, margin=(0, 15))
 
         def generate_instance():
             self.stop_search()  # IMPORTANT!
@@ -562,7 +575,7 @@ class RectanglePackingGUI(BaseGUI):
 
             if self.search_algorithm_name == 'greedy_search':
                 cost_strategy_name = dropselect_selection_strategy.get_value()[0][1]
-                self.problem.set_cost_strategy(cost_strategy_name)
+                self.problem.set_strategy(cost_strategy_name)
 
             heuristic_name = dropselect_heuristic.get_value()[0][1]
             self.problem.set_heuristic(heuristic_name)
@@ -595,15 +608,15 @@ class RectanglePackingGUI(BaseGUI):
         dropselect_algorithm.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_algorithm))
         self.main_frame.pack(dropselect_algorithm, margin=(15, 0))
 
-        btn_configure = self.main_menu.add.button(
+        btn_configure_algo = self.main_menu.add.button(
             title='Configure Algorithm',
             action=self.algo_config_menu,
             button_id='configure_algo',
             shadow_width=10
         )
-        btn_configure.set_onmouseover(lambda: button_onmouseover(btn_configure))
-        btn_configure.set_onmouseleave(lambda: button_onmouseleave(btn_configure))
-        self.main_frame.pack(btn_configure, margin=(0, 15))
+        btn_configure_algo.set_onmouseover(lambda: button_onmouseover(btn_configure_algo))
+        btn_configure_algo.set_onmouseleave(lambda: button_onmouseleave(btn_configure_algo))
+        self.main_frame.pack(btn_configure_algo, margin=(0, 15))
 
         def run_search():
             btn_search = self.main_menu.get_widget('run_search')
@@ -807,10 +820,12 @@ class RectanglePackingGUI(BaseGUI):
         if not new_instance:
             self.problem.set_instance_params(*instance_params)
 
+        self.__synchronize_problem_with_menu()
+
         if relaxation_enabled:
             self.problem.toggle_relaxation()
 
-        if isinstance(self.problem, RectanglePackingProblemGreedy):
+        if isinstance(self.problem, (RectanglePackingProblemGreedy, RectanglePackingProblemGreedyFast)):
             sol = self.problem.get_empty_solution()
         else:
             sol = self.problem.get_arbitrary_solution()
@@ -862,6 +877,23 @@ class RectanglePackingGUI(BaseGUI):
                 self.problem_config = problem_config
                 self.__setup_new_problem(new_instance=True)
                 return
+
+    def __synchronize_problem_with_menu(self):
+        dropselect_heuristic = self.algo_config_menu.get_widget('heuristic')
+        dropselect_selection_strategy = self.algo_config_menu.get_widget('selection_strategy')
+        btn_relaxation = self.algo_config_menu.get_widget('toggle_relaxation')
+
+        heuristic_name = dropselect_heuristic.get_value()[0][1]
+        self.problem.set_heuristic(heuristic_name)
+
+        if self.search_algorithm_name == 'local_search':
+            if btn_relaxation.get_title() == 'Enable Relaxation':
+                self.problem.toggle_relaxation(value=True)
+
+        elif self.search_algorithm_name == 'greedy_search':
+            cost_strategy_name = dropselect_selection_strategy.get_value()[0][1]
+            self.problem.set_strategy(cost_strategy_name)
+
 
     def resize_window(self, w, h):
         pygame.display.set_mode((w, h), pygame.RESIZABLE)
@@ -927,6 +959,9 @@ class RectanglePackingGUI(BaseGUI):
         while self.running:
             self.__handle_user_input()
             self.__render()
+
+            if not (self.animation_on or not self.is_searching):
+                time.sleep(1)
 
             self.frame_times[frame % 2000] = time.time()
             frame += 1
@@ -1022,29 +1057,34 @@ class RectanglePackingGUI(BaseGUI):
         self.zoom_level = target_zoom_level
 
     def __render(self):
+
+
         # Screen area
         pygame.draw.rect(self.screen, self.colors['grid_bg'],
                          [self.scr_marg_left, self.scr_marg_top,
                           self.area_width, self.area_height])
 
-        # Get visible grid boundary
-        top_left = -self.cam_pos // self.field_size + 1
-        top_left = top_left.astype(np.int32)
-        bottom_right = (-self.cam_pos + np.asarray([self.area_width, self.area_height])) // self.field_size + 1
-        bottom_right = bottom_right.astype(np.int32)
 
-        if self.animation_on or not self.is_searching:
+        draw_animation = self.animation_on or not self.is_searching
+
+        # Get visible grid boundary
+        if draw_animation:
+            top_left = -self.cam_pos // self.field_size + 1
+            top_left = top_left.astype(np.int32)
+            bottom_right = (-self.cam_pos + np.asarray([self.area_width, self.area_height])) // self.field_size + 1
+            bottom_right = bottom_right.astype(np.int32)
+
             self.highlight_non_empty_boxes(top_left, bottom_right)
             self.draw_fine_grid(top_left, bottom_right)
 
-        if self.problem is not None:
-            self.draw_box_grid(top_left, bottom_right)
+            if self.problem is not None:
+                self.draw_box_grid(top_left, bottom_right)
 
-            if self.current_sol is not None and (self.animation_on or not self.is_searching):
+            if self.current_sol is not None:
                 self.draw_rects(top_left, bottom_right)
 
-        if self.animation_on or not self.is_searching:
             self.highlight_overlapping_fields()
+
         self.draw_hover_shape()
 
         if self.problem is not None and self.current_sol is not None:
@@ -1053,7 +1093,7 @@ class RectanglePackingGUI(BaseGUI):
         if self.main_menu.is_enabled():
             self.main_menu.draw(self.screen)
 
-        if self.animation_on or not self.is_searching:
+        if draw_animation:
             self.__render_rectangle_preview()
 
         # Update the screen

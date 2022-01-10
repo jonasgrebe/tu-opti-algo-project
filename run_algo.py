@@ -1,7 +1,7 @@
 from algos.local import local_search
-from algos.greedy import greedy_search
+from algos.greedy import greedy_search, greedy_search_fast
 from problems.rectangle_packing.problem import RectanglePackingProblemGeometryBased
-from problems.rectangle_packing.problem import RectanglePackingProblemGreedy
+from problems.rectangle_packing.problem import RectanglePackingProblemGreedy, RectanglePackingProblemGreedyFast
 
 
 # For performance test
