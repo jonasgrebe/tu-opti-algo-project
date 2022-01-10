@@ -41,8 +41,7 @@ def greedy_search(problem: ConstructionProblem, gui: BaseGUI = None):  # TODO: r
         # Step 4: Animation
         if gui is not None:
             if gui.is_searching:
-                if gui.animation_on:
-                    gui.set_and_animate_solution(partial_solution)
+                gui.set_and_animate_solution(partial_solution)
                 gui.update_search_info({'num_remaining_elements': len(elements)})
             else:
                 break
@@ -50,7 +49,6 @@ def greedy_search(problem: ConstructionProblem, gui: BaseGUI = None):  # TODO: r
     # tell gui that search is over
     if gui is not None:
         gui.stop_search()
-        gui.set_current_solution(partial_solution)
 
     print("\nGreedy search took %.3f s" % (time.time() - t))
 

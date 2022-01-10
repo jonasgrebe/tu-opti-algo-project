@@ -102,7 +102,11 @@ class RectanglePackingProblem(OptProblem, ABC):
     def is_optimal(self, sol: RectanglePackingSolution):
         """If True is returned, the solution is optimal
         (otherwise no assertion can be made)."""
-        return sol.is_complete() and self.objective_function(sol) <= self.minimum_lower_bound
+
+        if not sol.is_complete():
+            return False
+
+        return self.objective_function(sol) <= self.minimum_lower_bound
 
 
     def place(self, rect_size, boxes_grid, selected_box_ids, box_coords, one_per_box=True):
@@ -394,6 +398,10 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
 
         # ---- Preprocessing: Determine a good rect selection order ----
         rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=1.0, keep_top_dogs=True)
+
+        rect_ids = list(range(self.num_rects))
+        np.random.shuffle(rect_ids)
+
 
         # ---- Check placements using sliding window approach ----
         for rect_idx in rect_ids:

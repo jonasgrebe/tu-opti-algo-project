@@ -30,21 +30,18 @@ def local_search(problem: NeighborhoodProblem, gui: BaseGUI = None):
         if next_solution is None:
             break
 
-        next_solution.apply_pending_move()
         current_solution = next_solution
         step += 1
 
         if gui is not None:
             if gui.is_searching:
-                if gui.animation_on:
-                    gui.set_and_animate_solution(current_solution)
+                gui.set_and_animate_solution(current_solution)
             else:
                 break
 
     # tell gui that search is over
     if gui is not None:
         gui.stop_search()
-        gui.set_current_solution(current_solution)
 
     print("\nLocal search took %.3f s" % (time.time() - t))
 
