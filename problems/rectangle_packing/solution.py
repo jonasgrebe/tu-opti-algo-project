@@ -24,6 +24,10 @@ class RectanglePackingSolution(Solution):
         self.boxes_grid = None
 
 
+    def apply_pending_move(self):
+        pass
+
+
     def reset(self, locations=None, rotations=None):
         if locations is not None:
             self.locations = locations
@@ -337,7 +341,7 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
 class RectanglePackingSolutionGreedy(RectanglePackingSolution):
     def __init__(self, problem):
         super(RectanglePackingSolutionGreedy, self).__init__(problem)
-        
+
 
     def get_remaining_elements(self):
         return np.where(~self.is_put)[0]

@@ -279,6 +279,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         penalty = np.sum(boxes_grid[boxes_grid > 1] - 1)
         return self.penalty_factor * penalty
 
+
     def heuristic(self, sol: RectanglePackingSolutionGeometryBased):
         h = super().heuristic(sol)
 
@@ -305,6 +306,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
 
             # (b, rects, L, L) -> (b, rects, x, y, w, h)
             regions_to_place_per_rect = np.lib.stride_tricks.sliding_window_view(rectangle_fields[selected_box_ids], rect_size, axis=(2, 3))
+            #regions_to_place_per_rect = np.lib.stride_tricks.sliding_window_view(rectangle_fields[selected_box_ids][:,contained_rectangles], rect_size, axis=(2, 3))
 
             # (b, rects, x, y, w, h) -> (b, x, y, rects, w, h)
             regions_to_place_per_rect = regions_to_place_per_rect.transpose((0, 2, 3, 1, 4, 5))
@@ -319,6 +321,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
             # get areas of involved rectangles
             r1_area = np.prod(rect_size)
             r2_areas = self.areas[r]
+            #r2_areas = self.areas[contained_rectangles[r]]
 
             # focus on the pairwise maxima and compute ratios of overlaps
             max_areas = np.maximum(r1_area, r2_areas)
@@ -390,10 +393,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
 
         # ---- Preprocessing: Determine a good rect selection order ----
-        #rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=1.0, keep_top_dogs=True)
-        # TODO: For now random
-        rect_ids = list(range(self.num_rects))
-        np.random.shuffle(rect_ids)
+        rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=1.0, keep_top_dogs=True)
 
         # ---- Check placements using sliding window approach ----
         for rect_idx in rect_ids:
@@ -476,7 +476,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
         box_capacity = self.box_length ** 2
 
         box_selection = np.where((sol.box_occupancies > 0) &
-                                 (sol.box_occupancies <= box_capacity - rect_area * (1 - self.allowed_overlap)))
+                                 (sol.box_occupancies <= box_capacity - rect_area))
 
         # Add an empty box to selection (such a box always exists ir rect_idx isn't put yet)
         box_selection = np.append(box_selection, [sol.get_empty_box_ids()[0]])

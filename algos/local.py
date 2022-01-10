@@ -9,13 +9,11 @@ MINIMUM_IMPROVEMENT = 0.01
 
 def local_search(problem: NeighborhoodProblem, gui: BaseGUI = None):
     t = time.time()
-
     # Step 1: Start with an arbitrary feasible solution
     current_solution = gui.get_current_solution() if gui is not None else problem.get_arbitrary_solution()
 
     # Step 2: While there is a better solution nearby, go to that solution
     step = 0
-
     problem.reset_relaxation()
     while True:
         objective_value = problem.objective_function(current_solution)
@@ -29,23 +27,24 @@ def local_search(problem: NeighborhoodProblem, gui: BaseGUI = None):
         # Degree of freedom: may choose from one of these
         # next_solution = get_best_neighbor(problem, current_solution)
         next_solution = get_next_better_neighbor(problem, current_solution)
-
         if next_solution is None:
             break
 
+        next_solution.apply_pending_move()
         current_solution = next_solution
         step += 1
 
         if gui is not None:
             if gui.is_searching:
-                gui.set_and_animate_solution(current_solution)
-                # gui.set_current_solution(current_solution)
+                if gui.animation_on:
+                    gui.set_and_animate_solution(current_solution)
             else:
                 break
 
     # tell gui that search is over
     if gui is not None:
         gui.stop_search()
+        gui.set_current_solution(current_solution)
 
     print("\nLocal search took %.3f s" % (time.time() - t))
 

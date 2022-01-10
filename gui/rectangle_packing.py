@@ -69,6 +69,8 @@ class RectanglePackingGUI(BaseGUI):
         self.anim_sleep = 2
         self.search_info = {}
 
+        self.animation_on = True
+
     @property
     def colors(self):
         return self.config['colors']
@@ -105,8 +107,13 @@ class RectanglePackingGUI(BaseGUI):
         btn_search = self.main_menu.get_widget('run_search')
         btn_search.set_title('Run Search')
 
-        btn_configure = self.main_menu.get_widget('configure_problem')
-        btn_configure.readonly = False
+        btn_configure_problem = self.main_menu.get_widget('configure_problem')
+        btn_configure_problem.readonly = False
+
+        btn_configure_algo = self.main_menu.get_widget('configure_algo')
+        btn_configure_algo.readonly = False
+
+        # self.__toogle_animation_on(True)
 
     def __setup_menu(self):
 
@@ -619,7 +626,7 @@ class RectanglePackingGUI(BaseGUI):
 
         def rangeslider_anim_speed_onchange(s, *args) -> None:
             rangeslider_animation_speed = self.main_menu.get_widget('rangeslider_animation_speed')
-            MAX_SLEEP_IN_SEC = 2
+            MAX_SLEEP_IN_SEC = 4
             value = int(rangeslider_animation_speed.get_value())
             self.anim_sleep = MAX_SLEEP_IN_SEC * 1 / (value + 0.01)
             rangeslider_animation_speed.set_value(value)
@@ -648,6 +655,16 @@ class RectanglePackingGUI(BaseGUI):
 
             self.set_current_solution(copy.deepcopy(self.init_sol))
 
+        btn_animation = self.main_menu.add.button(
+            'Disable Animation',
+            self.__toogle_animation_on,
+            button_id='btn_animation',
+            shadow_width=10
+        )
+        btn_animation.set_onmouseover(lambda: button_onmouseover(btn_animation))
+        btn_animation.set_onmouseleave(lambda: button_onmouseleave(btn_animation))
+        self.main_frame.pack(btn_animation, margin=(0, 15))
+
         btn_reset = self.main_menu.add.button(
             'Reset Search',
             reset_search,
@@ -667,6 +684,23 @@ class RectanglePackingGUI(BaseGUI):
         btn_exit.set_onmouseover(lambda: button_onmouseover(btn_exit))
         btn_exit.set_onmouseleave(lambda: button_onmouseleave(btn_exit))
         self.main_frame.pack(btn_exit, margin=(0, 40))
+
+    def __toogle_animation_on(self, value=None):
+        btn_animation = self.main_menu.get_widget('btn_animation')
+        rangeslider_anim_speed = self.main_menu.get_widget('rangeslider_animation_speed')
+
+        if value == None:
+            self.animation_on = not self.animation_on
+        else:
+            self.animation_on = value
+
+        if self.animation_on:
+            btn_animation.set_title("Disable Animation")
+            rangeslider_anim_speed.show()
+        else:
+            btn_animation.set_title("Enable Animation")
+            rangeslider_anim_speed.hide()
+
 
     def __mouse_over_menu(self):
         x, y, w, h = self.__get_menu_bounds()
@@ -751,8 +785,11 @@ class RectanglePackingGUI(BaseGUI):
         btn_search = self.main_menu.get_widget('run_search')
         btn_search.set_title('Pause Search')
 
-        btn_configure = self.main_menu.get_widget('configure_problem')
-        btn_configure.readonly = True
+        btn_configure_problem = self.main_menu.get_widget('configure_problem')
+        btn_configure_problem.readonly = True
+
+        btn_configure_algo = self.main_menu.get_widget('configure_algo')
+        btn_configure_algo.readonly = True
 
     def __setup_new_problem(self, new_instance=False):
 
@@ -835,6 +872,9 @@ class RectanglePackingGUI(BaseGUI):
         self.algo_config_menu.resize(w, h, position=(1, 1, False))
 
     def set_current_solution(self, solution: RectanglePackingSolution):
+        if isinstance(solution, RectanglePackingSolutionGeometryBased):
+            solution.apply_pending_move()
+
         self.current_sol = solution
         self.rect_dims = self.get_rect_dimensions()
 
@@ -865,14 +905,14 @@ class RectanglePackingGUI(BaseGUI):
         elif isinstance(sol, RectanglePackingSolutionGreedy):
             self.highlighted_rects[sol.last_put_rect] = True
 
-        time.sleep(self.anim_sleep)
-
-        if isinstance(sol, RectanglePackingSolutionGeometryBased):
-            sol.apply_pending_move()
+        if self.animation_on:
+            time.sleep(self.anim_sleep / 2)
 
         # Apply new solution
         self.set_current_solution(sol)
-        time.sleep(self.anim_sleep)
+
+        if self.animation_on:
+            time.sleep(self.anim_sleep / 2)
 
         # Unhighlight the changed rects
         self.highlighted_rects[:] = 0
@@ -992,16 +1032,18 @@ class RectanglePackingGUI(BaseGUI):
         bottom_right = (-self.cam_pos + np.asarray([self.area_width, self.area_height])) // self.field_size + 1
         bottom_right = bottom_right.astype(np.int32)
 
-        self.highlight_non_empty_boxes(top_left, bottom_right)
-        self.draw_fine_grid(top_left, bottom_right)
+        if self.animation_on or not self.is_searching:
+            self.highlight_non_empty_boxes(top_left, bottom_right)
+            self.draw_fine_grid(top_left, bottom_right)
 
         if self.problem is not None:
             self.draw_box_grid(top_left, bottom_right)
 
-            if self.current_sol is not None:
+            if self.current_sol is not None and (self.animation_on or not self.is_searching):
                 self.draw_rects(top_left, bottom_right)
 
-        self.highlight_overlapping_fields()
+        if self.animation_on or not self.is_searching:
+            self.highlight_overlapping_fields()
         self.draw_hover_shape()
 
         if self.problem is not None and self.current_sol is not None:
@@ -1010,7 +1052,8 @@ class RectanglePackingGUI(BaseGUI):
         if self.main_menu.is_enabled():
             self.main_menu.draw(self.screen)
 
-        self.__render_rectangle_preview()
+        if self.animation_on or not self.is_searching:
+            self.__render_rectangle_preview()
 
         # Update the screen
         pygame.display.flip()
