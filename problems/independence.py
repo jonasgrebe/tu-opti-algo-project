@@ -1,5 +1,14 @@
+from typing import Iterator
 from abc import abstractmethod
 from problems.optimization import OptProblem
+
+
+class IndependenceSet:
+    def add(self, element):
+        raise NotImplementedError
+
+    def remove(self, element):
+        raise NotImplementedError
 
 
 class IndependenceProblem(OptProblem):
@@ -7,18 +16,26 @@ class IndependenceProblem(OptProblem):
         super(IndependenceProblem, self).__init__(**kwargs)
 
     @abstractmethod
-    def get_elements(self, sol):
-        """Returns the elements."""
+    def get_sorted_elements(self) -> Iterator:
+        """Returns the elements of the ground set E sorted by costs."""
         raise NotImplementedError
 
     @abstractmethod
-    def is_independent(self, sol, element):  # TODO: refactor to 'set'
+    def get_empty_independence_set(self) -> IndependenceSet:
+        """Returns an empty set."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def is_independent(self, independence_set: IndependenceSet) -> bool:
         """Takes a set e and returns whether that set is independent.
 
-        :param sol: the current solution
-        :param element: an element (of the ground set E)
-        :return: True iff ele is independent
+        :param independence_set: subset of the ground set E
+        :return: True iff independence_set is independent
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    def is_basis(self, independence_set: IndependenceSet):
         raise NotImplementedError
 
     @abstractmethod

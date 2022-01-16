@@ -13,6 +13,9 @@ class BaseGUI:
     def set_and_animate_solution(self, solution):
         pass
 
+    def set_and_animate_independence_set(self, independence_set):
+        pass
+
     def set_current_solution(self, solution):
         pass
 

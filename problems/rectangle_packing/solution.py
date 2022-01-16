@@ -3,9 +3,9 @@ import copy
 import numpy as np
 
 
-class RectanglePackingSolution(Solution):
+class RPPSolution(Solution):
     def __init__(self, problem):
-        super(RectanglePackingSolution, self).__init__()
+        super(RPPSolution, self).__init__()
 
         self.move_pending = False
         self.pending_move_params = False
@@ -172,7 +172,7 @@ class RectanglePackingSolution(Solution):
         return np.all(self.is_put)
 
 
-def true_copy(from_sol: RectanglePackingSolution, to_sol: RectanglePackingSolution):
+def true_copy(from_sol: RPPSolution, to_sol: RPPSolution):
     to_sol.locations = from_sol.locations.copy()
     to_sol.rotations = from_sol.rotations.copy()
     to_sol.is_put = from_sol.is_put.copy()
@@ -185,7 +185,7 @@ def true_copy(from_sol: RectanglePackingSolution, to_sol: RectanglePackingSoluti
     to_sol.last_put_rect = from_sol.last_put_rect
 
 
-def ref_copy(from_sol: RectanglePackingSolution, to_sol: RectanglePackingSolution):
+def ref_copy(from_sol: RPPSolution, to_sol: RPPSolution):
     to_sol.locations = from_sol.locations
     to_sol.rotations = from_sol.rotations
     to_sol.is_put = from_sol.is_put
@@ -198,9 +198,9 @@ def ref_copy(from_sol: RectanglePackingSolution, to_sol: RectanglePackingSolutio
     to_sol.last_put_rect = from_sol.last_put_rect
 
 
-class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
+class RPPSolutionGeometryBased(RPPSolution):
     def __init__(self, problem):
-        super(RectanglePackingSolutionGeometryBased, self).__init__(problem)
+        super(RPPSolutionGeometryBased, self).__init__(problem)
 
         self.standalone = True  # If False, attributes of this class require deepcopy before any modification
         self.pending_move_params = None
@@ -300,9 +300,9 @@ class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
             self.standalone = True
 
 
-class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
+class RPPSolutionRuleBased(RPPSolution):
     def __init__(self, problem):
-        super(RectanglePackingSolutionRuleBased, self).__init__(problem)
+        super(RPPSolutionRuleBased, self).__init__(problem)
         self.rect_order = None
         self.moved_rect_ids = None
 
@@ -339,9 +339,9 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
         return duplicate
 
 
-class RectanglePackingSolutionGreedy(RectanglePackingSolution):
+class RPPSolutionGreedy(RPPSolution):
     def __init__(self, problem):
-        super(RectanglePackingSolutionGreedy, self).__init__(problem)
+        super(RPPSolutionGreedy, self).__init__(problem)
 
     def get_remaining_elements(self):
         return np.where(~self.is_put)[0]

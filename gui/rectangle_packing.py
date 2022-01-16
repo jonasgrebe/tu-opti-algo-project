@@ -9,17 +9,19 @@ import copy
 from algos import local_search, greedy_search, greedy_search_fast
 from gui import BaseGUI
 
-from problems.rectangle_packing.problem import (
-    RectanglePackingSolution,
-    RectanglePackingSolutionGeometryBased,
-    RectanglePackingSolutionRuleBased,
-    RectanglePackingSolutionGreedy,
 
-    RectanglePackingProblem,
-    RectanglePackingProblemGeometryBased,
-    RectanglePackingProblemRuleBased,
-    RectanglePackingProblemGreedy,
-    RectanglePackingProblemGreedyFast
+from problems.rectangle_packing.problem import (
+    RPPSolution,
+    RPPSolutionGeometryBased,
+    RPPSolutionRuleBased,
+    RPPSolutionGreedy,
+    RPPIndependenceSet,
+
+    RPP,
+    RPPGeometryBased,
+    RPPRuleBased,
+    RPPGreedy,
+    RPPGreedyFast
 )
 
 clock = pygame.time.Clock()
@@ -36,9 +38,9 @@ class RectanglePackingGUI(BaseGUI):
         self.problem = None
         self.problem_type_name = 'rectangle_packing_geometry_based'
         self.problem_types = {
-            'rectangle_packing_geometry_based': RectanglePackingProblemGeometryBased,
-            'rectangle_packing_rule_based': RectanglePackingProblemRuleBased,
-            'rectangle_packing_greedy': RectanglePackingProblemGreedyFast
+            'rectangle_packing_geometry_based': RPPGeometryBased,
+            'rectangle_packing_rule_based': RPPRuleBased,
+            'rectangle_packing_greedy': RPPGreedy  # RPPGreedyFast  # TODO
         }
         self.init_sol = None
 
@@ -66,7 +68,7 @@ class RectanglePackingGUI(BaseGUI):
         self.search = local_search  # the search algorithm routine
         self.search_algorithms = {
             'local_search': local_search,
-            'greedy_search': greedy_search_fast
+            'greedy_search': greedy_search  # greedy_search_fast  # TODO
         }
 
         self.is_searching = False
@@ -409,7 +411,7 @@ class RectanglePackingGUI(BaseGUI):
         def dropselect_selection_strategy_onchange(s, *args) -> None:
             self.stop_search()
 
-            assert isinstance(self.problem, (RectanglePackingProblemGreedy, RectanglePackingProblemGreedyFast))
+            assert isinstance(self.problem, (RPPGreedy, RPPGreedyFast))
 
             dropselect_selection_strategy = self.algo_config_menu.get_widget('selection_strategy')
             self.problem.set_strategy(args[0])
@@ -427,9 +429,10 @@ class RectanglePackingGUI(BaseGUI):
             title='',
 
             items=[
-                ('Largest First', 'largest_rectangle_first'),
-                ('Smallest First', 'smallest_rectangle_first'),
-                ('Random', 'uniform_rectangle'),
+                ('Largest First Top Left', 'largest_rectangle_first'),
+                ('Smallest First Top Left', 'smallest_rectangle_first'),
+                ('Lowest Box ID', 'lowest_box_id'),
+                ('Random', 'uniform_costs'),
             ],
             dropselect_id='selection_strategy',
             onchange=dropselect_selection_strategy_onchange,
@@ -555,7 +558,7 @@ class RectanglePackingGUI(BaseGUI):
                 dropselect_selection_strategy.hide()
                 dropselect_selection_strategy_label.hide()
 
-                if not isinstance(self.problem, RectanglePackingSolutionRuleBased):
+                if not isinstance(self.problem, RPPSolutionRuleBased):
                     btn_relaxation.show()
 
             elif self.search_algorithm_name == 'greedy_search':
@@ -820,7 +823,9 @@ class RectanglePackingGUI(BaseGUI):
         if relaxation_enabled:
             self.problem.toggle_relaxation()
 
-        if isinstance(self.problem, (RectanglePackingProblemGreedy, RectanglePackingProblemGreedyFast)):
+        if isinstance(self.problem, RPPGreedy):
+            sol = self.problem.get_empty_independence_set().corresponding_sol
+        elif isinstance(self.problem, RPPGreedyFast):
             sol = self.problem.get_empty_solution()
         else:
             sol = self.problem.get_arbitrary_solution()
@@ -898,8 +903,8 @@ class RectanglePackingGUI(BaseGUI):
         self.problem_config_menu.resize(w, h, position=(1, 1, False))
         self.algo_config_menu.resize(w, h, position=(1, 1, False))
 
-    def set_current_solution(self, solution: RectanglePackingSolution):
-        if isinstance(solution, RectanglePackingSolutionGeometryBased):
+    def set_current_solution(self, solution: RPPSolution):
+        if isinstance(solution, RPPSolutionGeometryBased):
             solution.apply_pending_move()
 
         self.current_sol = solution
@@ -920,16 +925,20 @@ class RectanglePackingGUI(BaseGUI):
             w[rotations], h[rotations] = h[rotations], w[rotations]
         return x, y, w, h
 
-    def set_and_animate_solution(self, sol: RectanglePackingSolution):
+    def set_and_animate_independence_set(self, independence_set: RPPIndependenceSet):
+        sol = independence_set.corresponding_sol
+        self.set_and_animate_solution(sol)
+
+    def set_and_animate_solution(self, sol: RPPSolution):
 
         # Identify modified rect and highlight it
-        if isinstance(sol, RectanglePackingSolutionGeometryBased) and sol.move_pending:
+        if isinstance(sol, RPPSolutionGeometryBased) and sol.move_pending:
             changed_rect_idx = sol.pending_move_params[0]
             self.highlighted_rects[changed_rect_idx] = True
-        elif isinstance(sol, RectanglePackingSolutionRuleBased):
+        elif isinstance(sol, RPPSolutionRuleBased):
             diff = (sol.rect_order != self.current_sol.rect_order)
             self.highlighted_rects[sol.moved_rect_ids] = True
-        elif isinstance(sol, RectanglePackingSolutionGreedy):
+        elif isinstance(sol, RPPSolutionGreedy):
             self.highlighted_rects[sol.last_put_rect] = True
 
         if self.animation_on:
@@ -991,7 +1000,7 @@ class RectanglePackingGUI(BaseGUI):
                     self.old_mouse_pos = mouse_pos
 
                 elif event.button == 1 and isinstance(self.problem,
-                                                      RectanglePackingProblemGeometryBased):  # left mousebutton
+                                                      RPPGeometryBased):  # left mousebutton
                     if self.selected_rect_idx is None:
                         self.selected_rect_idx = rect_idx
                         self.selection_rotated = False
@@ -1000,13 +1009,13 @@ class RectanglePackingGUI(BaseGUI):
                         rotated = self.selection_rotated != new_solution.rotations[self.selected_rect_idx]
                         new_solution.move_rect(self.selected_rect_idx, np.array([x, y]), rotated)
                         if self.problem.is_feasible(new_solution):
-                            if isinstance(new_solution, RectanglePackingSolutionGeometryBased):
+                            if isinstance(new_solution, RPPSolutionGeometryBased):
                                 new_solution.apply_pending_move()
                             self.set_current_solution(new_solution)
                             self.selected_rect_idx = None
 
                 elif event.button == 3 and isinstance(self.problem,
-                                                      RectanglePackingProblemGeometryBased):  # right mousebutton
+                                                      RPPGeometryBased):  # right mousebutton
                     if self.selected_rect_idx is not None:
                         self.selection_rotated = not self.selection_rotated
 
@@ -1235,7 +1244,7 @@ class RectanglePackingGUI(BaseGUI):
         text_surface = self.font.render(f'Heuristic Value: %.2f' % heuristic, True, self.colors['font'])
         self.screen.blit(text_surface, (32, 70))
 
-        if isinstance(self.problem, RectanglePackingProblemGeometryBased):
+        if isinstance(self.problem, RPPGeometryBased):
 
             if self.problem.is_relaxation_enabled():
                 penalty = self.problem.penalty(self.current_sol)

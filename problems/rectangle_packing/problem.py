@@ -1,12 +1,13 @@
 from abc import ABC
+from typing import Iterator
 
-from problems.independence import IndependenceProblem
+from problems.independence import IndependenceProblem, IndependenceSet
 from problems.neighborhood import NeighborhoodProblem, OptProblem
 from problems.rectangle_packing.solution import (
-    RectanglePackingSolutionGeometryBased,
-    RectanglePackingSolutionRuleBased,
-    RectanglePackingSolutionGreedy,
-    RectanglePackingSolution
+    RPPSolutionGeometryBased,
+    RPPSolutionRuleBased,
+    RPPSolutionGreedy,
+    RPPSolution
 )
 
 import numpy as np
@@ -16,9 +17,9 @@ MAX_CONSIDERED_BOXES = 256
 MAX_SELECTED_PLACINGS = 4
 
 
-class RectanglePackingProblem(OptProblem, ABC):
+class RPP(OptProblem, ABC):
     def __init__(self, box_length, num_rects, w_min, w_max, h_min, h_max):
-        super(RectanglePackingProblem, self).__init__(is_max=False)
+        super(RPP, self).__init__(is_max=False)
 
         self.box_length = box_length
         self.num_rects = num_rects
@@ -29,7 +30,7 @@ class RectanglePackingProblem(OptProblem, ABC):
 
         self.__heuristic = self.__box_occupancy_heuristic
 
-    def objective_function(self, sol: RectanglePackingSolution):
+    def objective_function(self, sol: RPPSolution):
         """Returns the number of boxes occupied in the current sol. Function symbol f.
         Assumes the solution to be feasible!"""
         if sol.move_pending:
@@ -90,7 +91,7 @@ class RectanglePackingProblem(OptProblem, ABC):
 
         self.set_instance_params(sizes)
 
-    def is_optimal(self, sol: RectanglePackingSolution):
+    def is_optimal(self, sol: RPPSolution):
         """If True is returned, the solution is optimal
         (otherwise no assertion can be made)."""
 
@@ -174,10 +175,10 @@ class RectanglePackingProblem(OptProblem, ABC):
         else:
             raise NotImplementedError
 
-    def heuristic(self, sol: RectanglePackingSolution):
+    def heuristic(self, sol: RPPSolution):
         return self.__heuristic(sol)
 
-    def __rect_cnt_heuristic(self, sol: RectanglePackingSolution):
+    def __rect_cnt_heuristic(self, sol: RPPSolution):
         """Depends on rectangle count per box."""
         if sol.move_pending:
             box_rect_cnts = sol.box_rect_cnts.copy()
@@ -194,7 +195,7 @@ class RectanglePackingProblem(OptProblem, ABC):
         cost = 1 - 0.5 ** box_rect_cnts
         return np.sum(cost)
 
-    def __box_occupancy_heuristic(self, sol: RectanglePackingSolution):
+    def __box_occupancy_heuristic(self, sol: RPPSolution):
         """Penalizes comparably low occupied boxes more."""
         if sol.move_pending:
             box_occupancies = sol.box_occupancies.copy()
@@ -212,7 +213,7 @@ class RectanglePackingProblem(OptProblem, ABC):
         cost = 1 + 0.9 * (box_occupancies[box_occupancies > 0] / box_capacity - 1) ** 3
         return np.sum(cost)
 
-    def __small_box_position_heuristic(self, sol: RectanglePackingSolution):
+    def __small_box_position_heuristic(self, sol: RPPSolution):
         # pos_sum = sol.locations.sum()
         # box_pos_sum = (sol.locations // self.box_length).sum()
 
@@ -230,9 +231,9 @@ class RectanglePackingProblem(OptProblem, ABC):
         return cost
 
 
-class RectanglePackingProblemGeometryBased(RectanglePackingProblem, NeighborhoodProblem):
+class RPPGeometryBased(RPP, NeighborhoodProblem):
     def __init__(self, *args, **kwargs):
-        super(RectanglePackingProblemGeometryBased, self).__init__(*args, **kwargs)
+        super(RPPGeometryBased, self).__init__(*args, **kwargs)
         self.allowed_overlap = 0.0
         self.penalty_factor = 0.0
 
@@ -282,7 +283,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         penalty = np.sum(boxes_grid[boxes_grid > 1] - 1)
         return self.penalty_factor * penalty
 
-    def heuristic(self, sol: RectanglePackingSolutionGeometryBased):
+    def heuristic(self, sol: RPPSolutionGeometryBased):
         h = super().heuristic(sol)
 
         if self.allowed_overlap == 0 or not self.relaxation_enabled:
@@ -361,7 +362,7 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
 
         return locs, b
 
-    def is_feasible(self, sol: RectanglePackingSolutionGeometryBased):
+    def is_feasible(self, sol: RPPSolutionGeometryBased):
         if sol.move_pending:
             # Remember current configuration and apply pending move
             rect_idx, target_pos, rotated = sol.pending_move_params
@@ -389,14 +390,14 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
             y_locations = np.arange(self.num_rects) // num_cols
             locations = np.stack([x_locations, y_locations], axis=1) * self.box_length
         rotations = np.zeros(self.num_rects, dtype=np.bool)
-        sol = RectanglePackingSolutionGeometryBased(self)
+        sol = RPPSolutionGeometryBased(self)
         sol.set_solution(locations, rotations)
         return sol
 
-    def get_neighborhood(self, sol: RectanglePackingSolutionGeometryBased):
+    def get_neighborhood(self, sol: RPPSolutionGeometryBased):
         return list(itertools.chain(*list(self.get_next_neighbors(sol))))
 
-    def get_next_neighbors(self, sol: RectanglePackingSolutionGeometryBased):
+    def get_next_neighbors(self, sol: RPPSolutionGeometryBased):
         """Returns all valid placing coordinates for all rectangles."""
         ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
 
@@ -445,14 +446,14 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
             yield sols
 
 
-class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProblem):
+class RPPRuleBased(RPP, NeighborhoodProblem):
     def __init__(self, *args, **kwargs):
-        super(RectanglePackingProblemRuleBased, self).__init__(*args, **kwargs)
+        super(RPPRuleBased, self).__init__(*args, **kwargs)
 
-    def get_neighborhood(self, sol: RectanglePackingSolutionRuleBased):
+    def get_neighborhood(self, sol: RPPSolutionRuleBased):
         pass
 
-    def get_next_neighbors(self, sol: RectanglePackingSolutionRuleBased):
+    def get_next_neighbors(self, sol: RPPSolutionRuleBased):
         if not sol.all_rects_put():
             self.put_all_rects(sol)
 
@@ -475,18 +476,18 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
             yield [new_sol]
 
     def get_arbitrary_solution(self):
-        sol = RectanglePackingSolutionRuleBased(self)
+        sol = RPPSolutionRuleBased(self)
         sol.reset()
         sol.rect_order = np.arange(self.num_rects)
         return sol
 
-    def objective_function(self, sol: RectanglePackingSolutionRuleBased):
+    def objective_function(self, sol: RPPSolutionRuleBased):
         if not sol.all_rects_put():
             self.put_all_rects(sol)
 
         return super().objective_function(sol)
 
-    def select_boxes_to_place(self, sol: RectanglePackingSolutionRuleBased, rect_idx: int):
+    def select_boxes_to_place(self, sol: RPPSolutionRuleBased, rect_idx: int):
         rect_area = np.prod(self.sizes[rect_idx])
         box_capacity = self.box_length ** 2
 
@@ -498,7 +499,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
 
         return box_selection
 
-    def put_all_rects(self, sol: RectanglePackingSolutionRuleBased):
+    def put_all_rects(self, sol: RPPSolutionRuleBased):
         # sol.reset()
         rects_to_put = sol.rect_order[~sol.is_put[sol.rect_order]]
         for rect_idx in rects_to_put:
@@ -515,32 +516,147 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
             target_pos = place_options[1][0] if choose_rotated else place_options[0][0]
             sol.put_rect(rect_idx, target_pos=target_pos, rotated=choose_rotated, update_ids=True)
 
-    def heuristic(self, sol: RectanglePackingSolutionRuleBased):
+    def heuristic(self, sol: RPPSolutionRuleBased):
         if not sol.all_rects_put():
             self.put_all_rects(sol)
         return super().heuristic(sol)
 
-    def is_feasible(self, sol: RectanglePackingSolutionRuleBased):
+    def is_feasible(self, sol: RPPSolutionRuleBased):
         rect_id_set = set(list(sol.rect_order))
         return len(rect_id_set) == self.num_rects \
                and np.all(sol.rect_order >= 0) \
                and np.all(sol.rect_order < self.num_rects)
 
 
-class RectanglePackingProblemGreedy(RectanglePackingProblem, IndependenceProblem):
-    def __init__(self, *args, **kwargs):
-        super(RectanglePackingProblemGreedy, self).__init__(*args, **kwargs)
+class RPPIndependenceSet(IndependenceSet):
+    def __init__(self, problem: RPP):
+        self.corresponding_sol = RPPSolution(problem)
+        self.corresponding_sol.reset()
 
-        self.__costs = self.__smallest_position_costs
-        self.strategy_name = 'smallest_position_costs_strategy'
+    def add(self, element):
+        self.corresponding_sol.put_rect(*element)
+
+    def remove(self, element):
+        rect_idx = element[0]
+        self.corresponding_sol.remove_rect(rect_idx)
+
+
+class RPPGreedy(RPP, IndependenceProblem):
+    def __init__(self, *args, **kwargs):
+        super(RPPGreedy, self).__init__(*args, **kwargs)
+        self.current_set = RPPIndependenceSet(self)
+        self.__costs = self.__costs_smallest_area_top_left
+        self.strategy_name = 'largest_rectangle_first'
+
+    def get_sorted_elements(self) -> Iterator:
+        if self.__costs == self.__costs_smallest_area_top_left:
+            return self.__get_sorted_by_area_asc()
+        if self.__costs == self.__costs_largest_area_top_left:
+            return self.__get_sorted_by_area_desc()
+        if self.__costs == self.__costs_lowest_box_id:
+            return self.__get_sorted_by_lowest_box_id()
+        if self.__costs == self.__costs_uniform:
+            return self.__get_random()
+        else:
+            raise NotImplementedError
+
+    def __get_sorted_by_area_asc(self) -> Iterator:
+        order = self.areas.argsort()
+        return self.__place_rects_by_order_iterator(order)
+
+    def __get_sorted_by_area_desc(self) -> Iterator:
+        order = self.areas.argsort()[::-1]
+        return self.__place_rects_by_order_iterator(order)
+
+    def __get_sorted_by_lowest_box_id(self) -> Iterator:
+        order = np.random.permutation(self.num_rects)
+        return self.__place_rects_by_order_iterator(order)
+
+    def __place_rects_by_order_iterator(self, order) -> Iterator:
+        for i in range(self.num_rects):
+            rect_idx = order[i]
+            sol = self.current_set.corresponding_sol
+            selected_box_ids = np.append(sol.get_occupied_box_ids(), sol.get_empty_box_ids()[0])  # TODO: can be more efficient
+            place_locations, _ = self.place(self.sizes[rect_idx], sol.boxes_grid, selected_box_ids, sol.box_coords)
+            element = (rect_idx, place_locations[0], False)
+            yield element
+
+    def __get_random(self) -> Iterator:
+        sol = self.current_set.corresponding_sol
+        while not self.is_basis(self.current_set):
+            not_put_rect_ids = np.where(~ sol.is_put)[0]
+            rect_idx = np.random.choice(not_put_rect_ids)
+            box_id = np.random.randint(0, self.num_rects)
+            w, h = self.sizes[rect_idx]
+            x = np.random.randint(0, self.box_length - w + 1)
+            y = np.random.randint(0, self.box_length - h + 1)
+            location = np.array([x, y]) + sol.box_coords[box_id] * self.box_length
+            rotation = np.random.randint(0, 2) == 1
+            element = (rect_idx, location, rotation)
+            yield element
+
+    # def __get_sorted_by_xy(self) -> Iterator:
+    #     sol = self.current_set.corresponding_sol
+    #     while not self.is_basis(self.current_set):
+    #         rect_idx = ...
+    #         location = ...
+    #         rotation = ...
+    #         element = (rect_idx, location, rotation)
+    #         yield element
+
+    def get_empty_independence_set(self) -> RPPIndependenceSet:
+        self.current_set = RPPIndependenceSet(self)
+        return self.current_set
+
+    def is_independent(self, independence_set: RPPIndependenceSet):
+        return rects_correctly_placed(independence_set.corresponding_sol)
+
+    def is_basis(self, independence_set: RPPIndependenceSet):
+        return independence_set.corresponding_sol.all_rects_put()
+
+    def set_strategy(self, strategy_name):
+        if strategy_name == 'smallest_rectangle_first':
+            self.__costs = self.__costs_smallest_area_top_left
+        elif strategy_name == 'largest_rectangle_first':
+            self.__costs = self.__costs_largest_area_top_left
+        elif strategy_name == 'lowest_box_id':
+            self.__costs = self.__costs_lowest_box_id
+        elif strategy_name == 'uniform_costs':
+            self.__costs = self.__costs_uniform
+        else:
+            raise NotImplementedError
+
+        self.strategy_name = strategy_name
+
+    def costs(self, elements):
+        return self.__costs(elements)
 
     def __smallest_position_costs(self, e):
         _, target_pos, _ = e
         return sum(target_pos)
 
-    def __largest_area_costs(self, e):
-        rect_idx, _, _ = e
-        return - np.prod(self.sizes[rect_idx])
+    def __costs_smallest_area_top_left(self, element):
+        rect_idx, location, rotation = element
+        box_idx = self.current_set.corresponding_sol.get_box_idx_by_pos(location)
+        area = np.prod(self.sizes[rect_idx])
+        area_costs = area * self.num_rects
+        return area_costs + box_idx + location[0] / self.box_length + location[1] / self.box_length ** 2
+
+    def __costs_largest_area_top_left(self, element):
+        rect_idx, location, rotation = element
+        box_idx = self.current_set.corresponding_sol.get_box_idx_by_pos(location)
+        area = np.prod(self.sizes[rect_idx])
+        area_costs = (self.box_length ** 2 - area) * self.num_rects
+        return area_costs + box_idx + location[0] / self.box_length + location[1] / self.box_length ** 2
+
+    def __costs_lowest_box_id(self, element):
+        rect_idx, location, rotation = element
+        box_idx = self.current_set.corresponding_sol.get_box_idx_by_pos(location)
+        return box_idx + location[0] / self.box_length + location[1] / self.box_length ** 2
+
+    def __costs_uniform(self, element):
+        return 1
+
 
     def __smallest_position_plus_largest_area_costs(self, e):
         rect_idx, target_pos, _ = e
@@ -555,24 +671,6 @@ class RectanglePackingProblemGreedy(RectanglePackingProblem, IndependenceProblem
     def __uniform_costs(self, e):
         return 0
 
-    def set_strategy(self, strategy_name):
-        if strategy_name == 'smallest_position_costs':
-            self.__costs = self.__smallest_position_costs
-        elif strategy_name == 'largest_area_costs':
-            self.__costs = self.__largest_area_costs
-        elif strategy_name == 'smallest_position_plus_largest_area_costs':
-            self.__costs = self.__smallest_position_plus_largest_area_costs
-        elif strategy_name == 'uniform_costs':
-            self.__costs = self.__uniform_costs
-        elif strategy_name == 'lowest_box_id_costs':
-            self.__costs = self.__lowest_box_id_costs
-        else:
-            raise NotImplementedError
-
-        self.strategy_name = strategy_name
-
-    def costs(self, elements):
-        return self.__costs(elements)
 
     def get_elements(self, sol):
         """Returns a list of elements"""
@@ -603,32 +701,13 @@ class RectanglePackingProblemGreedy(RectanglePackingProblem, IndependenceProblem
     def filter_elements(self, sol, elements, e):
         return list(filter(lambda x: x[0] != e[0], elements))
 
-    def is_independent(self, sol, element):
-        rect_idx, target_pos, rotated = element
-
-        if sol.is_put[rect_idx]:
-            return False
-
-        new_sol = sol.copy()
-        try:
-            new_sol.put_rect(rect_idx, target_pos, rotated)
-        except:
-            return False
-
-        return rects_correctly_placed(new_sol)
-
-    def get_empty_solution(self):
-        sol = RectanglePackingSolutionGreedy(self)
-        sol.reset()
-        return sol
-
     def is_feasible(self, sol):
         raise NotImplementedError
 
 
-class RectanglePackingProblemGreedyFast(RectanglePackingProblem):
+class RPPGreedyFast(RPP):
     def __init__(self, *args, **kwargs):
-        super(RectanglePackingProblemGreedyFast, self).__init__(*args, **kwargs)
+        super(RPPGreedyFast, self).__init__(*args, **kwargs)
 
         self.__costs = self.__largest_rect_costs
         self.strategy_name = 'largest_rectangle_first'
@@ -661,11 +740,11 @@ class RectanglePackingProblemGreedyFast(RectanglePackingProblem):
         return 0
 
     def get_empty_solution(self):
-        sol = RectanglePackingSolutionGreedy(self)
+        sol = RPPSolutionGreedy(self)
         sol.reset()
         return sol
 
-    def get_expansion(self, sol: RectanglePackingSolutionGreedy):
+    def get_expansion(self, sol: RPPSolutionGreedy):
         """Returns expansion (partial sols obtained by appending an element) of the given (partial) sol."""
         ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
         ordered_by_idx = ordered_by_occupancy.sort()
@@ -705,18 +784,18 @@ class RectanglePackingProblemGreedyFast(RectanglePackingProblem):
         raise NotImplementedError
 
 
-def occupancy_heuristic(sol: RectanglePackingSolution):
+def occupancy_heuristic(sol: RPPSolution):
     box_occupancies = sol.box_occupancies
     box_capacity = sol.problem.box_length ** 2
     cost = 1 + 0.9 * (box_occupancies[box_occupancies > 0] / box_capacity - 1) ** 3
     return np.sum(cost)
 
 
-def rects_correctly_placed(sol: RectanglePackingSolution):
+def rects_correctly_placed(sol: RPPSolution):
     return rects_respect_boxes(sol) and rects_are_disjoint(sol)
 
 
-def rects_respect_boxes(sol: RectanglePackingSolution):
+def rects_respect_boxes(sol: RPPSolution):
     """Checks if each rect lies inside a single box.
     Requires the solution to be built already."""
     sizes = sol.get_rect_sizes()
@@ -725,7 +804,7 @@ def rects_respect_boxes(sol: RectanglePackingSolution):
     return not np.any(ends_rel > sol.problem.box_length)
 
 
-def rects_are_disjoint(sol: RectanglePackingSolution):
+def rects_are_disjoint(sol: RPPSolution):
     """Checks if no rects intersect.
     Requires the solution to be built already."""
     return not np.any(sol.boxes_grid > 1)
