@@ -627,7 +627,7 @@ class RPPGreedy(RPP, IndependenceProblem):
             x = np.random.randint(0, self.box_length - w + 1)
             y = np.random.randint(0, self.box_length - h + 1)
             location = np.array([x, y]) + sol.box_coords[box_id] * self.box_length
-            rotation = np.random.randint(0, 2) == 1
+            rotation = False
             element = (rect_idx, location, rotation)
             yield element
 
