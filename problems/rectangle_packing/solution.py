@@ -24,10 +24,8 @@ class RectanglePackingSolution(Solution):
 
         self.boxes_grid = None
 
-
     def apply_pending_move(self):
         pass
-
 
     def reset(self, locations=None, rotations=None):
         if locations is not None:
@@ -172,6 +170,7 @@ class RectanglePackingSolution(Solution):
     def is_complete(self):
         return np.all(self.is_put)
 
+
 def true_copy(from_sol: RectanglePackingSolution, to_sol: RectanglePackingSolution):
     to_sol.locations = from_sol.locations.copy()
     to_sol.rotations = from_sol.rotations.copy()
@@ -208,8 +207,9 @@ class RectanglePackingSolutionGeometryBased(RectanglePackingSolution):
 
     def reset(self, locations=None, rotations=None):
         super().reset(locations, rotations)
-        self.rectangle_fields = np.zeros((self.problem.num_rects, self.problem.num_rects, self.problem.box_length, self.problem.box_length), dtype=bool)
-
+        self.rectangle_fields = np.zeros(
+            (self.problem.num_rects, self.problem.num_rects, self.problem.box_length, self.problem.box_length),
+            dtype=bool)
 
     def put_rect(self, rect_idx, target_pos, rotated, update_ids=False):
         """Puts the specified rect to the given target position, rotated accordingly.
@@ -336,7 +336,6 @@ class RectanglePackingSolutionRuleBased(RectanglePackingSolution):
         duplicate = super().copy(True)
         duplicate.rect_order = self.rect_order.copy()
         return duplicate
-
 
 
 class RectanglePackingSolutionGreedy(RectanglePackingSolution):
