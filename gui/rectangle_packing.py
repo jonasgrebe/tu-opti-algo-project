@@ -9,7 +9,6 @@ import copy
 from algos import local_search, greedy_search, greedy_search_fast
 from gui import BaseGUI
 
-
 from problems.rectangle_packing.problem import (
     RPPSolution,
     RPPSolutionGeometryBased,

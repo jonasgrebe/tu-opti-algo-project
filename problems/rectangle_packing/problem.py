@@ -406,7 +406,6 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
     def get_neighborhood(self, sol: RPPSolutionGeometryBased):
         return list(itertools.chain(*list(self.get_next_neighbors(sol))))
 
-
     def get_overlap_rect_selection_order(self, boxes_grid, rectangle_fields, box2rects):
         box_penalized_counts = (boxes_grid ** 2).sum(axis=(1, 2))
         ordered_by_penalized_counts = box_penalized_counts.argsort()[::-1]
@@ -428,7 +427,6 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
 
         return rect_ids
 
-
     def get_next_neighbors(self, sol: RPPSolutionGeometryBased):
         """Returns all valid placing coordinates for all rectangles."""
         ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
@@ -436,10 +434,10 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
         # ---- Preprocessing: Determine a good rect selection order ----
         if np.any(sol.boxes_grid > 1):
             rect_ids = self.get_overlap_rect_selection_order(sol.boxes_grid, sol.rectangle_fields, sol.box2rects)
-            #rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects,
+            # rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects,
             #                                         occupancy_threshold=1.0,
             #                                         keep_top_dogs=True)
-            #rect_ids = self.get_random_rect_selection_order()
+            # rect_ids = self.get_random_rect_selection_order()
         else:
             rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects,
                                                      occupancy_threshold=0.9,
@@ -467,7 +465,7 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
                     box2rects=sol.box2rects,
                     box_coords=sol.box_coords,
                     allowed_overlap=self.allowed_overlap
-                    )
+                )
 
                 # Prune abundant options
                 relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
@@ -613,7 +611,8 @@ class RPPGreedy(RPP, IndependenceProblem):
         for i in range(self.num_rects):
             rect_idx = order[i]
             sol = self.current_set.corresponding_sol
-            selected_box_ids = np.append(sol.get_occupied_box_ids(), sol.get_empty_box_ids()[0])  # TODO: can be more efficient
+            selected_box_ids = np.append(sol.get_occupied_box_ids(),
+                                         sol.get_empty_box_ids()[0])  # TODO: can be more efficient
             place_locations, _ = self.place(self.sizes[rect_idx], sol.boxes_grid, selected_box_ids, sol.box_coords)
             element = (rect_idx, place_locations[0], False)
             yield element
@@ -694,7 +693,6 @@ class RPPGreedy(RPP, IndependenceProblem):
     def __costs_uniform(self, element):
         return 1
 
-
     def __smallest_position_plus_largest_area_costs(self, e):
         rect_idx, target_pos, _ = e
         return - np.prod(self.sizes[rect_idx]) + sum(target_pos)
@@ -707,7 +705,6 @@ class RPPGreedy(RPP, IndependenceProblem):
 
     def __uniform_costs(self, e):
         return 0
-
 
     def get_elements(self, sol):
         """Returns a list of elements"""
