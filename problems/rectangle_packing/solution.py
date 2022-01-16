@@ -8,6 +8,7 @@ class RectanglePackingSolution(Solution):
         super(RectanglePackingSolution, self).__init__()
 
         self.move_pending = False
+        self.pending_move_params = False
         self.problem = problem
 
         self.locations = None

@@ -45,12 +45,6 @@ class RectanglePackingProblem(OptProblem, ABC):
             box_rect_cnts = sol.box_rect_cnts
         return np.sum(box_rect_cnts > 0)
 
-    def update_relaxation(self, step):
-        pass
-
-    def reset_relaxation(self):
-        pass
-
     def is_relaxation_active(self):
         return False
 
@@ -128,7 +122,15 @@ class RectanglePackingProblem(OptProblem, ABC):
 
         return locs, b
 
-    def get_rect_selection_order(self, box_occupancies, box2rects, occupancy_threshold=0.9, keep_top_dogs=False):
+    def get_random_rect_selection_order(self):
+        rect_ids = list(range(self.num_rects))
+        np.random.shuffle(rect_ids)
+        return rect_ids
+
+    def get_rect_selection_order(self, box_occupancies, box2rects, occupancy_threshold=0.9,
+                                 keep_top_dogs=False):
+        """Returns a 'good' rectangle selection order."""
+
         # Drop rects which lie in very full boxes
         box_capacity = self.box_length ** 2
         almost_full = box_occupancies / box_capacity > occupancy_threshold
@@ -170,7 +172,7 @@ class RectanglePackingProblem(OptProblem, ABC):
         elif heuristic_name == 'small_box_position_heuristic':
             self.__heuristic = self.__small_box_position_heuristic
         else:
-            raise IllegalArgumentError
+            raise NotImplementedError
 
     def heuristic(self, sol: RectanglePackingSolution):
         return self.__heuristic(sol)
@@ -379,10 +381,13 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
 
     def get_arbitrary_solution(self):
         """Returns a solution where each rectangle is placed into an own box (not rotated)."""
-        num_cols = int(np.ceil(np.sqrt(self.num_rects)))
-        x_locations = np.arange(self.num_rects) % num_cols
-        y_locations = np.arange(self.num_rects) // num_cols
-        locations = np.stack([x_locations, y_locations], axis=1) * self.box_length
+        if self.relaxation_enabled:
+            locations = np.zeros((self.num_rects, 2), dtype=np.int)
+        else:
+            num_cols = int(np.ceil(np.sqrt(self.num_rects)))
+            x_locations = np.arange(self.num_rects) % num_cols
+            y_locations = np.arange(self.num_rects) // num_cols
+            locations = np.stack([x_locations, y_locations], axis=1) * self.box_length
         rotations = np.zeros(self.num_rects, dtype=np.bool)
         sol = RectanglePackingSolutionGeometryBased(self)
         sol.set_solution(locations, rotations)
@@ -396,11 +401,12 @@ class RectanglePackingProblemGeometryBased(RectanglePackingProblem, Neighborhood
         ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
 
         # ---- Preprocessing: Determine a good rect selection order ----
-        rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects, occupancy_threshold=1.0,
-                                                 keep_top_dogs=True)
-
-        rect_ids = list(range(self.num_rects))
-        np.random.shuffle(rect_ids)
+        if self.allowed_overlap > 0:
+            rect_ids = self.get_random_rect_selection_order()
+        else:
+            rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects,
+                                                     occupancy_threshold=0.9,
+                                                     keep_top_dogs=False)
 
         # ---- Check placements using sliding window approach ----
         for rect_idx in rect_ids:
@@ -561,7 +567,7 @@ class RectanglePackingProblemGreedy(RectanglePackingProblem, ConstructionProblem
         elif strategy_name == 'lowest_box_id_costs':
             self.__costs = self.__lowest_box_id_costs
         else:
-            raise IllegalArgumentError
+            raise NotImplementedError
 
         self.strategy_name = strategy_name
 
@@ -597,8 +603,8 @@ class RectanglePackingProblemGreedy(RectanglePackingProblem, ConstructionProblem
     def filter_elements(self, sol, elements, e):
         return list(filter(lambda x: x[0] != e[0], elements))
 
-    def is_independent(self, sol, e):
-        rect_idx, target_pos, rotated = e
+    def is_independent(self, sol, element):
+        rect_idx, target_pos, rotated = element
 
         if sol.is_put[rect_idx]:
             return False
@@ -611,16 +617,13 @@ class RectanglePackingProblemGreedy(RectanglePackingProblem, ConstructionProblem
 
         return rects_correctly_placed(new_sol)
 
-    def is_feasible(self, sol: RectanglePackingSolutionGreedy):
-        rect_id_set = set(list(sol.rect_order))
-        return len(rect_id_set) == self.num_rects \
-               and np.all(sol.rect_order >= 0) \
-               and np.all(sol.rect_order < self.num_rects)
-
     def get_empty_solution(self):
         sol = RectanglePackingSolutionGreedy(self)
         sol.reset()
         return sol
+
+    def is_feasible(self, sol):
+        raise NotImplementedError
 
 
 class RectanglePackingProblemGreedyFast(RectanglePackingProblem):
@@ -641,7 +644,7 @@ class RectanglePackingProblemGreedyFast(RectanglePackingProblem):
         elif strategy_name == 'uniform_rectangle':
             self.__costs = self.__uniform_rect_costs
         else:
-            raise IllegalArgumentError
+            raise NotImplementedError
 
         self.strategy_name = strategy_name
 
@@ -656,12 +659,6 @@ class RectanglePackingProblemGreedyFast(RectanglePackingProblem):
 
     def __uniform_rect_costs(self, rect_idx):
         return 0
-
-    def is_feasible(self, sol: RectanglePackingSolutionGreedy):
-        rect_id_set = set(list(sol.rect_order))
-        return len(rect_id_set) == self.num_rects \
-               and np.all(sol.rect_order >= 0) \
-               and np.all(sol.rect_order < self.num_rects)
 
     def get_empty_solution(self):
         sol = RectanglePackingSolutionGreedy(self)
@@ -703,6 +700,9 @@ class RectanglePackingProblemGreedyFast(RectanglePackingProblem):
                 # assert self.is_feasible(new_sol)
 
                 return new_sol
+
+    def is_feasible(self, sol):
+        raise NotImplementedError
 
 
 def occupancy_heuristic(sol: RectanglePackingSolution):

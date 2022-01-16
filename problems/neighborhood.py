@@ -32,3 +32,18 @@ class NeighborhoodProblem(OptProblem):
         :return: feasible initial solution
         """
         raise NotImplementedError
+
+    def update_relaxation(self, step):
+        pass
+
+    def reset_relaxation(self):
+        pass
+
+    def is_relaxation_active(self):
+        pass
+
+    def is_relaxation_enabled(self):
+        pass
+
+    def toggle_relaxation(self, value):
+        pass

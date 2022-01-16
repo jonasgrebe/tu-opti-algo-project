@@ -4,17 +4,19 @@ from gui import BaseGUI
 import numpy as np
 import time
 
-
 MINIMUM_IMPROVEMENT = 0.01
+
 
 def local_search(problem: NeighborhoodProblem, gui: BaseGUI = None):
     t = time.time()
+
+    problem.reset_relaxation()
+
     # Step 1: Start with an arbitrary feasible solution
     current_solution = gui.get_current_solution() if gui is not None else problem.get_arbitrary_solution()
 
     # Step 2: While there is a better solution nearby, go to that solution
     step = 0
-    problem.reset_relaxation()
     while True:
         objective_value = problem.objective_function(current_solution)
         heuristic_value = problem.heuristic(current_solution)
@@ -75,9 +77,6 @@ def get_best_neighbor(problem, solution):
 def get_next_better_neighbor(problem: NeighborhoodProblem, solution):
     value = problem.heuristic(solution)
 
-    best_neighbor_so_far = None
-    best_value_so_far = -np.inf if problem.is_max else np.inf
-
     for neighbors in problem.get_next_neighbors(solution):
         if not neighbors:
             continue
@@ -87,27 +86,10 @@ def get_next_better_neighbor(problem: NeighborhoodProblem, solution):
         if problem.is_max:
             best_neighbor_idx = np.argmax(neighbors_values)
             is_significantly_better = neighbors_values[best_neighbor_idx] > value + MINIMUM_IMPROVEMENT
-
-            if neighbors_values[best_neighbor_idx] > best_value_so_far:
-                best_neighbor_so_far = neighbors[best_neighbor_idx]
-                best_value_so_far = neighbors_values[best_neighbor_idx]
         else:
             best_neighbor_idx = np.argmin(neighbors_values)
             is_significantly_better = neighbors_values[best_neighbor_idx] < value - MINIMUM_IMPROVEMENT
 
-            if neighbors_values[best_neighbor_idx] < best_value_so_far:
-                best_neighbor_so_far = neighbors[best_neighbor_idx]
-                best_value_so_far = neighbors_values[best_neighbor_idx]
-
-        if is_significantly_better or problem.is_relaxation_active():
+        if is_significantly_better:
+            # assert problem.is_feasible(neighbors[best_neighbor_idx])
             return neighbors[best_neighbor_idx]
-
-    if not problem.is_feasible(solution):
-        print("\n NOT FEASIBLE")
-        return best_neighbor_so_far
-
-        # for neighbor in neighbors:
-        #     if problem.is_max and problem.h(neighbor) > value:
-        #         return neighbor
-        #     elif not problem.is_max and problem.h(neighbor) < value:
-        #         return neighbor

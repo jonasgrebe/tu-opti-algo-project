@@ -20,18 +20,19 @@ from problems.rectangle_packing.problem import (
     RectanglePackingProblemRuleBased,
     RectanglePackingProblemGreedy,
     RectanglePackingProblemGreedyFast
-    )
+)
 
 clock = pygame.time.Clock()
 
 ZOOM_STEP_FACTOR = 1.1
+
 
 class RectanglePackingGUI(BaseGUI):
     def __init__(self):
         super().__init__()
 
         # Problem constants
-        self.problem_config = dict(box_length=8, num_rects=32, w_min=1, w_max=8, h_min=1, h_max=8)
+        self.problem_config = dict(box_length=10, num_rects=32, w_min=1, w_max=7, h_min=1, h_max=7)
         self.problem = None
         self.problem_type_name = 'rectangle_packing_geometry_based'
         self.problem_types = {
@@ -53,6 +54,7 @@ class RectanglePackingGUI(BaseGUI):
         self.selected_rect_idx = None
         self.highlighted_rects = None
         self.selection_rotated = False
+        self.last_frame_time = 0
 
         with open("gui/config.json") as json_data_file:
             self.config = json.load(json_data_file)
@@ -275,7 +277,6 @@ class RectanglePackingGUI(BaseGUI):
         btn_close_problem_config_menu.set_onmouseleave(lambda: button_onmouseleave(btn_close_problem_config_menu))
         self.problem_config_frame.pack(btn_close_problem_config_menu, margin=(0, 35))
 
-
         # Algorithm Config Menu
         self.algo_config_menu = pygame_menu.Menu(
             width=self.screen.get_width(),
@@ -286,14 +287,13 @@ class RectanglePackingGUI(BaseGUI):
         )
 
         self.algo_config_frame = self.algo_config_menu.add.frame_v(width=350, height=400,
-                                                                        padding=(15, 15),
-                                                                         background_color=self.colors["menu_bg"],
-                                                                         align=pygame_menu.locals.ALIGN_RIGHT)
+                                                                   padding=(15, 15),
+                                                                   background_color=self.colors["menu_bg"],
+                                                                   align=pygame_menu.locals.ALIGN_RIGHT)
         self.algo_config_menu._relax = True
 
-
         label = self.algo_config_menu.add.label("Neighborhood", label_id="neighborhood_label",
-                                                      background_color=pygame_menu.themes.TRANSPARENT_COLOR)
+                                                background_color=pygame_menu.themes.TRANSPARENT_COLOR)
 
         self.algo_config_frame.pack(label, margin=(0, 15))
 
@@ -302,14 +302,14 @@ class RectanglePackingGUI(BaseGUI):
             self.problem_type_name = args[0]
             self.__setup_new_problem()
 
-            #rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
-            #rangeslider_penalty = self.algo_config_menu.get_widget('rangeslider_penalty')
+            # rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
+            # rangeslider_penalty = self.algo_config_menu.get_widget('rangeslider_penalty')
             btn_relaxation = self.algo_config_menu.get_widget('toggle_relaxation')
 
-            #if self.problem_type_name == 'rectangle_packing_geometry_based':
+            # if self.problem_type_name == 'rectangle_packing_geometry_based':
             #    rangeslider_overlap.show()
             #    #rangeslider_penalty.show()
-            #else:
+            # else:
             #    rangeslider_overlap.hide()
             #    #rangeslider_penalty.hide()
 
@@ -352,7 +352,6 @@ class RectanglePackingGUI(BaseGUI):
                 btn_relaxation.set_title("Disable Relaxation")
             else:
                 btn_relaxation.set_title("Enable Relaxation")
-
 
         btn_relaxation = self.algo_config_menu.add.button(
             'Enable Relaxation',
@@ -402,8 +401,8 @@ class RectanglePackingGUI(BaseGUI):
         """
 
         label = self.algo_config_menu.add.label("Strategy",
-                                         label_id="selection_strategy_label",
-                                         background_color=pygame_menu.themes.TRANSPARENT_COLOR)
+                                                label_id="selection_strategy_label",
+                                                background_color=pygame_menu.themes.TRANSPARENT_COLOR)
         label.hide()
         self.algo_config_frame.pack(label, margin=(0, 15))
 
@@ -451,9 +450,8 @@ class RectanglePackingGUI(BaseGUI):
         dropselect_selection_strategy.hide()
         self.algo_config_frame.pack(dropselect_selection_strategy, margin=(15, 0))
 
-
         label = self.algo_config_menu.add.label("Heuristic", label_id="heuristic_label",
-                                                      background_color=pygame_menu.themes.TRANSPARENT_COLOR)
+                                                background_color=pygame_menu.themes.TRANSPARENT_COLOR)
         self.algo_config_frame.pack(label, margin=(0, 15))
 
         def dropselect_heuristic_onchange(s, *args) -> None:
@@ -485,7 +483,6 @@ class RectanglePackingGUI(BaseGUI):
         dropselect_heuristic.set_onmouseover(lambda: dropselect_onmouseover(dropselect_heuristic))
         dropselect_heuristic.set_onmouseleave(lambda: dropselect_onmouseleave(dropselect_heuristic))
         self.algo_config_frame.pack(dropselect_heuristic, margin=(15, 0))
-
 
         btn_close_algo_config_menu = self.algo_config_menu.add.button(
             title='Apply',
@@ -540,7 +537,6 @@ class RectanglePackingGUI(BaseGUI):
             self.search_algorithm_name = args[0]
             self.search = self.search_algorithms[self.search_algorithm_name]
 
-
             dropselect_neighborhood = self.algo_config_menu.get_widget('neighborhood')
             dropselect_neighborhood = self.algo_config_menu.get_widget('neighborhood')
             dropselect_neighborhood_label = self.algo_config_menu.get_widget('neighborhood_label')
@@ -549,7 +545,7 @@ class RectanglePackingGUI(BaseGUI):
 
             btn_relaxation = self.algo_config_menu.get_widget('toggle_relaxation')
 
-            #rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
+            # rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
 
             if self.search_algorithm_name == 'local_search':
                 self.problem_type_name = dropselect_neighborhood.get_value()[0][1]
@@ -645,7 +641,6 @@ class RectanglePackingGUI(BaseGUI):
             self.anim_sleep = MAX_SLEEP_IN_SEC * 1 / (value + 0.01)
             rangeslider_animation_speed.set_value(value)
 
-
         rangeslider_anim_speed = self.main_menu.add.range_slider(
             'Speed',
             rangeslider_id='rangeslider_animation_speed',
@@ -715,7 +710,6 @@ class RectanglePackingGUI(BaseGUI):
             btn_animation.set_title("Enable Animation")
             rangeslider_anim_speed.hide()
 
-
     def __mouse_over_menu(self):
         x, y, w, h = self.__get_menu_bounds()
         mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -749,7 +743,8 @@ class RectanglePackingGUI(BaseGUI):
         x = margin_left
         y = y_offset + margin_top
 
-        rect_order = range(self.problem.num_rects) if self.problem_type_name == 'rectangle_packing_greedy' else self.current_sol.rect_order
+        rect_order = range(
+            self.problem.num_rects) if self.problem_type_name == 'rectangle_packing_greedy' else self.current_sol.rect_order
 
         for rect_idx in rect_order:
             w, h = self.problem.sizes[rect_idx]
@@ -894,7 +889,6 @@ class RectanglePackingGUI(BaseGUI):
             cost_strategy_name = dropselect_selection_strategy.get_value()[0][1]
             self.problem.set_strategy(cost_strategy_name)
 
-
     def resize_window(self, w, h):
         pygame.display.set_mode((w, h), pygame.RESIZABLE)
         self.area_width = self.screen.get_width()
@@ -959,12 +953,12 @@ class RectanglePackingGUI(BaseGUI):
         while self.running:
             self.__handle_user_input()
             self.__render()
-
-            if not (self.animation_on or not self.is_searching):
-                time.sleep(1)
-
             self.frame_times[frame % 2000] = time.time()
             frame += 1
+
+            # last_frame_time = self.frame_times[(frame - 1) % 2000]
+            if not self.animation_on and self.is_searching:
+                time.sleep(1)
 
         pygame.quit()
 
@@ -996,7 +990,8 @@ class RectanglePackingGUI(BaseGUI):
                     self.dragging_camera = True
                     self.old_mouse_pos = mouse_pos
 
-                elif event.button == 1 and isinstance(self.problem, RectanglePackingProblemGeometryBased):  # left mousebutton
+                elif event.button == 1 and isinstance(self.problem,
+                                                      RectanglePackingProblemGeometryBased):  # left mousebutton
                     if self.selected_rect_idx is None:
                         self.selected_rect_idx = rect_idx
                         self.selection_rotated = False
@@ -1010,7 +1005,8 @@ class RectanglePackingGUI(BaseGUI):
                             self.set_current_solution(new_solution)
                             self.selected_rect_idx = None
 
-                elif event.button == 3 and isinstance(self.problem, RectanglePackingProblemGeometryBased):  # right mousebutton
+                elif event.button == 3 and isinstance(self.problem,
+                                                      RectanglePackingProblemGeometryBased):  # right mousebutton
                     if self.selected_rect_idx is not None:
                         self.selection_rotated = not self.selection_rotated
 
@@ -1057,33 +1053,26 @@ class RectanglePackingGUI(BaseGUI):
         self.zoom_level = target_zoom_level
 
     def __render(self):
-
-
         # Screen area
         pygame.draw.rect(self.screen, self.colors['grid_bg'],
                          [self.scr_marg_left, self.scr_marg_top,
                           self.area_width, self.area_height])
 
+        top_left = -self.cam_pos // self.field_size + 1
+        top_left = top_left.astype(np.int32)
+        bottom_right = (-self.cam_pos + np.asarray([self.area_width, self.area_height])) // self.field_size + 1
+        bottom_right = bottom_right.astype(np.int32)
 
-        draw_animation = self.animation_on or not self.is_searching
+        self.highlight_non_empty_boxes(top_left, bottom_right)
+        self.draw_fine_grid(top_left, bottom_right)
 
-        # Get visible grid boundary
-        if draw_animation:
-            top_left = -self.cam_pos // self.field_size + 1
-            top_left = top_left.astype(np.int32)
-            bottom_right = (-self.cam_pos + np.asarray([self.area_width, self.area_height])) // self.field_size + 1
-            bottom_right = bottom_right.astype(np.int32)
+        if self.problem is not None:
+            self.draw_box_grid(top_left, bottom_right)
 
-            self.highlight_non_empty_boxes(top_left, bottom_right)
-            self.draw_fine_grid(top_left, bottom_right)
+        if self.current_sol is not None:
+            self.draw_rects(top_left, bottom_right)
 
-            if self.problem is not None:
-                self.draw_box_grid(top_left, bottom_right)
-
-            if self.current_sol is not None:
-                self.draw_rects(top_left, bottom_right)
-
-            self.highlight_overlapping_fields()
+        self.highlight_overlapping_fields()
 
         self.draw_hover_shape()
 
@@ -1093,8 +1082,7 @@ class RectanglePackingGUI(BaseGUI):
         if self.main_menu.is_enabled():
             self.main_menu.draw(self.screen)
 
-        if draw_animation:
-            self.__render_rectangle_preview()
+        self.__render_rectangle_preview()
 
         # Update the screen
         pygame.display.flip()
@@ -1106,7 +1094,6 @@ class RectanglePackingGUI(BaseGUI):
         for (x, y) in visible_boxes:
             self.draw_rect(x * l, y * l, l, l, color=self.colors['non_empty_boxes'])
 
-
     def highlight_overlapping_fields(self):
         if self.current_sol.boxes_grid.max() <= 1:
             return
@@ -1117,9 +1104,8 @@ class RectanglePackingGUI(BaseGUI):
         b, x, y = np.where(self.current_sol.boxes_grid > 1)
 
         for (bf, xf, yf) in zip(b, x, y):
-
             bfx, bfy = self.current_sol.box_coords[bf]
-            overlaps =  self.current_sol.boxes_grid[bf, xf, yf] - 1
+            overlaps = self.current_sol.boxes_grid[bf, xf, yf] - 1
 
             min_color = self.colors['min_overlap'].copy()
             max_color = self.colors['max_overlap']
@@ -1128,7 +1114,6 @@ class RectanglePackingGUI(BaseGUI):
             color = [int(min + (overlaps / 7) * (max - min)) for min, max in zip(min_color, max_color)]
 
             self.draw_rect(bfx * l + xf, bfy * l + yf, 1, 1, color=color)
-
 
     def get_visible_boxes(self, view_top_left, view_bottom_right):
         l = self.problem.box_length
@@ -1257,11 +1242,12 @@ class RectanglePackingGUI(BaseGUI):
 
                 text_surface = self.font.render(f'Penalty Value: %.2f' % penalty, True, self.colors['font'])
                 self.screen.blit(text_surface, (32, 108))
-                text_surface = self.font.render(f'Allowed Overlap: %.3f' % self.problem.allowed_overlap, True, self.colors['font'])
+                text_surface = self.font.render(f'Allowed Overlap: %.3f' % self.problem.allowed_overlap, True,
+                                                self.colors['font'])
                 self.screen.blit(text_surface, (32, 250))
-                text_surface = self.font.render(f'Penalty Factor: %.3f' % self.problem.penalty_factor, True, self.colors['font'])
+                text_surface = self.font.render(f'Penalty Factor: %.3f' % self.problem.penalty_factor, True,
+                                                self.colors['font'])
                 self.screen.blit(text_surface, (32, 288))
-
 
         if self.search_start_time is not None:
             if self.is_searching:
@@ -1289,7 +1275,7 @@ class RectanglePackingGUI(BaseGUI):
         fps = np.sum(during_last_sec)
         text = 'FPS: %d' % int(fps)
         text_surface = self.font.render(text, True, self.colors['font'])
-        self.screen.blit(text_surface, (self.screen.get_width() -  self.font.size(text)[0] - 32, 32))
+        self.screen.blit(text_surface, (self.screen.get_width() - self.font.size(text)[0] - 32, 32))
 
     def mouse_pos_to_field_coords(self, mouse_pos):
         field_y = mouse_pos[1] - self.scr_marg_top - self.cam_pos[1]
