@@ -347,7 +347,9 @@ class RectanglePackingGUI(BaseGUI):
                 return
 
             btn_relaxation = self.algo_config_menu.get_widget('toggle_relaxation')
+
             self.problem.toggle_relaxation()
+
             if self.problem.is_relaxation_enabled():
                 btn_relaxation.set_title("Disable Relaxation")
             else:
@@ -819,9 +821,6 @@ class RectanglePackingGUI(BaseGUI):
 
         self.__synchronize_problem_with_menu()
 
-        if relaxation_enabled:
-            self.problem.toggle_relaxation(value=False)
-
         if isinstance(self.problem, (RectanglePackingProblemGreedy, RectanglePackingProblemGreedyFast)):
             sol = self.problem.get_empty_solution()
         else:
@@ -885,6 +884,8 @@ class RectanglePackingGUI(BaseGUI):
 
         if self.search_algorithm_name == 'local_search':
             if btn_relaxation.get_title() == 'Enable Relaxation':
+                self.problem.toggle_relaxation(value=False)
+            else:
                 self.problem.toggle_relaxation(value=True)
 
         elif self.search_algorithm_name == 'greedy_search':
