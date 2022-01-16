@@ -1,10 +1,11 @@
-from problems.construction import ConstructionProblem
+from problems.independence import IndependenceProblem
 from gui import BaseGUI
 
 import numpy as np
 import time
 
-def greedy_search(problem: ConstructionProblem, gui: BaseGUI = None):  # TODO: rename to max_greedy_search
+
+def greedy_search(problem: IndependenceProblem, gui: BaseGUI = None):  # TODO: rename to max_greedy_search
     t = time.time()
 
     # Step 1: Get empty solution
@@ -13,11 +14,11 @@ def greedy_search(problem: ConstructionProblem, gui: BaseGUI = None):  # TODO: r
     # Step 2: Generate the candidate elements
     elements = problem.get_elements(partial_solution)
     elements = sorted(elements, key=problem.costs)
-    #elements = np.array(elements, dtype=object)
+    # elements = np.array(elements, dtype=object)
 
     step = 0
     while not partial_solution.is_complete():
-        #e, elements = elements[0], elements[1:]
+        # e, elements = elements[0], elements[1:]
         e = elements.pop(0)
 
         step += 1
@@ -55,7 +56,7 @@ def greedy_search(problem: ConstructionProblem, gui: BaseGUI = None):  # TODO: r
     return partial_solution
 
 
-def greedy_search_fast(problem: ConstructionProblem, gui: BaseGUI = None):  # TODO: rename to max_greedy_search
+def greedy_search_fast(problem: IndependenceProblem, gui: BaseGUI = None):  # TODO: rename to max_greedy_search
     t = time.time()
 
     # Step 1: Get empty solution

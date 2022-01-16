@@ -1,6 +1,6 @@
 from abc import ABC
 
-from problems.construction import ConstructionProblem
+from problems.independence import IndependenceProblem
 from problems.neighborhood import NeighborhoodProblem, OptProblem
 from problems.rectangle_packing.solution import (
     RectanglePackingSolutionGeometryBased,
@@ -527,7 +527,7 @@ class RectanglePackingProblemRuleBased(RectanglePackingProblem, NeighborhoodProb
                and np.all(sol.rect_order < self.num_rects)
 
 
-class RectanglePackingProblemGreedy(RectanglePackingProblem, ConstructionProblem):
+class RectanglePackingProblemGreedy(RectanglePackingProblem, IndependenceProblem):
     def __init__(self, *args, **kwargs):
         super(RectanglePackingProblemGreedy, self).__init__(*args, **kwargs)
 
@@ -571,8 +571,8 @@ class RectanglePackingProblemGreedy(RectanglePackingProblem, ConstructionProblem
 
         self.strategy_name = strategy_name
 
-    def costs(self, e):
-        return self.__costs(e)
+    def costs(self, elements):
+        return self.__costs(elements)
 
     def get_elements(self, sol):
         """Returns a list of elements"""
@@ -648,8 +648,8 @@ class RectanglePackingProblemGreedyFast(RectanglePackingProblem):
 
         self.strategy_name = strategy_name
 
-    def costs(self, rect_idxs):
-        return self.__costs(rect_idxs)
+    def costs(self, rect_ids):
+        return self.__costs(rect_ids)
 
     def __largest_rect_costs(self, rect_idx):
         return - self.areas[rect_idx]
