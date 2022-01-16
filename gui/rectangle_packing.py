@@ -429,7 +429,7 @@ class RectanglePackingGUI(BaseGUI):
             items=[
                 ('Largest First', 'largest_rectangle_first'),
                 ('Smallest First', 'smallest_rectangle_first'),
-                ('Random', 'random_rectangle'),
+                ('Random', 'uniform_rectangle'),
             ],
             dropselect_id='selection_strategy',
             onchange=dropselect_selection_strategy_onchange,
