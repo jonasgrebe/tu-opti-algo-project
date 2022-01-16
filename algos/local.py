@@ -56,8 +56,6 @@ def get_best_neighbor(problem, solution):
 
     neighborhood = problem.get_neighborhood(solution)
 
-    print("neighborhood size:", len(neighborhood))
-
     neighborhood_values = [problem.heuristic(neighbor_solution) for neighbor_solution in neighborhood]
 
     if problem.is_max:
@@ -66,10 +64,6 @@ def get_best_neighbor(problem, solution):
     else:
         best_neighbor_idx = np.argmin(neighborhood_values)
         is_significantly_better = neighborhood_values[best_neighbor_idx] < value - MINIMUM_IMPROVEMENT
-
-    if not (is_significantly_better or problem.is_relaxation_active()) and problem.is_feasible(solution):
-        print(problem.is_feasible(solution))
-        return None
 
     return neighborhood[best_neighbor_idx]
 

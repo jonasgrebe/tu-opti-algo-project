@@ -52,7 +52,7 @@ class RPP(OptProblem, ABC):
     def is_relaxation_enabled(self):
         return False
 
-    def toggle_relaxation(self, value):
+    def toggle_relaxation(self, value=None):
         pass
 
     def get_instance_params(self):
@@ -243,9 +243,8 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
         if not self.relaxation_enabled:
             return
 
-        self.penalty_factor = 1e-3 * step ** 2
-        self.allowed_overlap = np.exp(- 1e-1 * step)
-        self.allowed_overlap = round(self.allowed_overlap, 2)
+        self.penalty_factor = 1e-3 * step ** 3
+        self.allowed_overlap = np.exp(- 2.30259 / self.num_rects * step)
 
     def reset_relaxation(self):
         self.penalty_factor = 0.0
@@ -262,7 +261,7 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
 
     def toggle_relaxation(self, value: bool = None):
         if value is not None:
-            self.relaxation_enabled = None
+            self.relaxation_enabled = value
         else:
             self.relaxation_enabled = not self.relaxation_enabled
 
@@ -270,13 +269,23 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
         if sol.move_pending:
             rect_idx, target_pos, rotated = sol.pending_move_params
             orig_pos = sol.locations[rect_idx]
-            sol.apply_pending_move()
+
+            target_box_idx = sol.get_box_idx_by_pos(target_pos)
+            orig_box_idx = sol.get_box_idx_by_pos(orig_pos)
 
             boxes_grid = sol.boxes_grid.copy()
+            x, y = orig_pos % self.box_length
+            w, h = self.sizes[rect_idx]
+            if rotated:
+                w, h = h, w
+            boxes_grid[orig_box_idx, x:x + w, y:y + h] -= 1
 
-            sol.move_rect(rect_idx, orig_pos, rotated)
-            sol.apply_pending_move()
-            sol.move_rect(rect_idx, target_pos, rotated)
+            x, y = target_pos % self.box_length
+            w, h = self.sizes[rect_idx]
+            if rotated:
+                w, h = h, w
+            boxes_grid[target_box_idx, x:x + w, y:y + h] += 1
+
         else:
             boxes_grid = sol.boxes_grid
 
@@ -296,7 +305,7 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
     def place(self, rect_size, boxes_grid, selected_box_ids, rectangle_fields=None, box2rects=None, box_coords=None,
               one_per_box=True, allowed_overlap=0.0):
 
-        if allowed_overlap == 0:
+        if allowed_overlap == 0 or not np.any(boxes_grid > 1):
             #  handle the simple case (can also be handles with the 'else' case but probably takes more time)
             regions_to_place = np.lib.stride_tricks.sliding_window_view(boxes_grid[selected_box_ids], rect_size,
                                                                         axis=(1, 2))
@@ -397,13 +406,40 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
     def get_neighborhood(self, sol: RPPSolutionGeometryBased):
         return list(itertools.chain(*list(self.get_next_neighbors(sol))))
 
+
+    def get_overlap_rect_selection_order(self, boxes_grid, rectangle_fields, box2rects):
+        box_penalized_counts = (boxes_grid ** 2).sum(axis=(1, 2))
+        ordered_by_penalized_counts = box_penalized_counts.argsort()[::-1]
+        rect_lists = list(box2rects.values())
+
+        rect_ids = []
+        for box_id in ordered_by_penalized_counts:
+            box_rect_list = np.array(rect_lists[box_id], dtype=int)
+
+            fields = rectangle_fields[box_id][box_rect_list]
+            overlap_mask = fields.sum(axis=0) > 1
+            rect_overlaps = (fields * overlap_mask).sum(axis=(1, 2))
+
+            ordered_by_overlaps = rect_overlaps.argsort()[::-1]
+            rect_selection = box_rect_list[ordered_by_overlaps]
+            rect_ids += [rect_selection]
+
+        rect_ids = np.concatenate(rect_ids).astype(np.int)
+
+        return rect_ids
+
+
     def get_next_neighbors(self, sol: RPPSolutionGeometryBased):
         """Returns all valid placing coordinates for all rectangles."""
         ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
 
         # ---- Preprocessing: Determine a good rect selection order ----
-        if self.allowed_overlap > 0:
-            rect_ids = self.get_random_rect_selection_order()
+        if np.any(sol.boxes_grid > 1):
+            rect_ids = self.get_overlap_rect_selection_order(sol.boxes_grid, sol.rectangle_fields, sol.box2rects)
+            #rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects,
+            #                                         occupancy_threshold=1.0,
+            #                                         keep_top_dogs=True)
+            #rect_ids = self.get_random_rect_selection_order()
         else:
             rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects,
                                                      occupancy_threshold=0.9,
@@ -430,7 +466,8 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
                     rectangle_fields=sol.rectangle_fields,
                     box2rects=sol.box2rects,
                     box_coords=sol.box_coords,
-                    allowed_overlap=self.allowed_overlap)
+                    allowed_overlap=self.allowed_overlap
+                    )
 
                 # Prune abundant options
                 relevant_locs = relevant_locs[:MAX_SELECTED_PLACINGS]
@@ -720,7 +757,7 @@ class RPPGreedyFast(RPP):
             self.__costs = self.__largest_rect_costs
         elif strategy_name == 'smallest_rectangle_first':
             self.__costs = self.__smallest_rect_costs
-        elif strategy_name == 'uniform_rectangle':
+        elif strategy_name == 'random_rectangle':
             self.__costs = self.__uniform_rect_costs
         else:
             raise NotImplementedError
