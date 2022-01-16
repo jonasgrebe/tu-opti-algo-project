@@ -641,7 +641,7 @@ class RectanglePackingProblemGreedyFast(RectanglePackingProblem):
             self.__costs = self.__largest_rect_costs
         elif strategy_name == 'smallest_rectangle_first':
             self.__costs = self.__smallest_rect_costs
-        elif strategy_name == 'uniform_rectangle':
+        elif strategy_name == 'random_rectangle':
             self.__costs = self.__uniform_rect_costs
         else:
             raise NotImplementedError

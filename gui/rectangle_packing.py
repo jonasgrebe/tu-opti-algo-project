@@ -353,6 +353,8 @@ class RectanglePackingGUI(BaseGUI):
             else:
                 btn_relaxation.set_title("Enable Relaxation")
 
+            self.__setup_new_problem()
+
         btn_relaxation = self.algo_config_menu.add.button(
             'Enable Relaxation',
             toggle_relaxation,
@@ -429,7 +431,7 @@ class RectanglePackingGUI(BaseGUI):
             items=[
                 ('Largest First', 'largest_rectangle_first'),
                 ('Smallest First', 'smallest_rectangle_first'),
-                ('Random', 'uniform_rectangle'),
+                ('Random', 'random_rectangle'),
             ],
             dropselect_id='selection_strategy',
             onchange=dropselect_selection_strategy_onchange,
@@ -818,7 +820,7 @@ class RectanglePackingGUI(BaseGUI):
         self.__synchronize_problem_with_menu()
 
         if relaxation_enabled:
-            self.problem.toggle_relaxation()
+            self.problem.toggle_relaxation(value=False)
 
         if isinstance(self.problem, (RectanglePackingProblemGreedy, RectanglePackingProblemGreedyFast)):
             sol = self.problem.get_empty_solution()
