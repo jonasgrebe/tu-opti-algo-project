@@ -37,8 +37,3 @@ class IndependenceProblem(OptProblem):
     @abstractmethod
     def is_basis(self, independence_set: IndependenceSet):
         raise NotImplementedError
-
-    @abstractmethod
-    def costs(self, elements):
-        """Returns the cost for a given element."""
-        raise NotImplementedError
