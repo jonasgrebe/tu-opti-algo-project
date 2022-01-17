@@ -6,21 +6,19 @@ import numpy as np
 import json
 import copy
 
-from algos import local_search, greedy_search, greedy_search_fast
+from algos import local_search, greedy_search
 from gui import BaseGUI
 
 from problems.rectangle_packing.problem import (
     RPPSolution,
     RPPSolutionGeometryBased,
     RPPSolutionRuleBased,
-    RPPSolutionGreedy,
-    RPPIndependenceSet,
 
     RPP,
     RPPGeometryBased,
     RPPRuleBased,
     RPPGreedy,
-    RPPGreedyFast
+    RPPIndependenceSet,
 )
 
 clock = pygame.time.Clock()
@@ -32,19 +30,27 @@ class RectanglePackingGUI(BaseGUI):
     def __init__(self):
         super().__init__()
 
-        # Problem constants
+        # (Initial) problem configuration
         self.problem_config = dict(box_length=10, num_rects=32, w_min=1, w_max=7, h_min=1, h_max=7)
         self.problem = None
+
+        # (Initial) problem type name
         self.problem_type_name = 'rectangle_packing_geometry_based'
+        # Map of problem type names to problem type classes
         self.problem_types = {
             'rectangle_packing_geometry_based': RPPGeometryBased,
             'rectangle_packing_rule_based': RPPRuleBased,
-            'rectangle_packing_greedy': RPPGreedy  # RPPGreedyFast  # TODO
+            'rectangle_packing_greedy': RPPGreedy # TODO
         }
+        # (Initial) search algorithm name
+        self.search_algorithm_name = 'local_search'
+        # Map of search algorithm names to search algorithm routines
+        self.search_algorithms = {
+            'local_search': local_search,
+            'greedy_search': greedy_search # TODO
+        }
+
         self.init_sol = None
-
-        self.algo_config = dict(heuristic='box_occupancy_heuristic', neighborhood='geometry_based', strategy='uniform')
-
         self.current_sol = None
         self.rect_dims = None
 
@@ -56,28 +62,22 @@ class RectanglePackingGUI(BaseGUI):
         self.highlighted_rects = None
         self.selection_rotated = False
         self.last_frame_time = 0
+        self.animation_on = True
 
+        # GUI configuration file loading
         with open("gui/config.json") as json_data_file:
             self.config = json.load(json_data_file)
 
         self.render_thread = threading.Thread(target=self.__run)
         self.render_thread.start()
 
-        self.search_algorithm_name = 'local_search'  # ['local_search', 'greedy_search']
-        self.search = local_search  # the search algorithm routine
-        self.search_algorithms = {
-            'local_search': local_search,
-            'greedy_search': greedy_search  # greedy_search_fast  # TODO
-        }
-
+        # Search Constants
         self.is_searching = False
         self.is_paused = False
         self.search_thread = None
         self.search_start_time = None
         self.anim_sleep = 2
         self.search_info = {}
-
-        self.animation_on = True
 
     @property
     def colors(self):
@@ -86,6 +86,10 @@ class RectanglePackingGUI(BaseGUI):
     @property
     def field_size(self):
         return np.round(self.config['field_size'] * self.zoom_level)
+
+    @property
+    def search(self):
+        return self.search_algorithms[self.search_algorithm_name]
 
     def __init_gui(self):
         pygame.init()
@@ -121,7 +125,6 @@ class RectanglePackingGUI(BaseGUI):
         btn_configure_algo = self.main_menu.get_widget('configure_algo')
         btn_configure_algo.readonly = False
 
-        # self.__toogle_animation_on(True)
 
     def __setup_menu(self):
 
@@ -303,16 +306,7 @@ class RectanglePackingGUI(BaseGUI):
             self.problem_type_name = args[0]
             self.__setup_new_problem()
 
-            # rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
-            # rangeslider_penalty = self.algo_config_menu.get_widget('rangeslider_penalty')
             btn_relaxation = self.algo_config_menu.get_widget('toggle_relaxation')
-
-            # if self.problem_type_name == 'rectangle_packing_geometry_based':
-            #    rangeslider_overlap.show()
-            #    #rangeslider_penalty.show()
-            # else:
-            #    rangeslider_overlap.hide()
-            #    #rangeslider_penalty.hide()
 
             if self.problem_type_name == 'rectangle_packing_geometry_based':
                 btn_relaxation.show()
@@ -368,43 +362,6 @@ class RectanglePackingGUI(BaseGUI):
         btn_relaxation.set_onmouseleave(lambda: button_onmouseleave(btn_relaxation))
         self.algo_config_frame.pack(btn_relaxation, margin=(0, 15))
 
-        """
-        def rangeslider_overlap_onchange(s, *args) -> None:
-
-            rangeslider_overlap = self.algo_config_menu.get_widget('rangeslider_overlap')
-            self.problem.allowed_overlap = rangeslider_overlap.get_value()
-
-        rangeslider_overlap = self.algo_config_menu.add.range_slider(
-            'Overlap',
-            rangeslider_id='rangeslider_overlap',
-            default=1.0,
-            range_values=(0, 1),
-            increment=0.01,
-            onchange=rangeslider_overlap_onchange,
-            shadow_width=10
-        )
-        self.algo_config_frame.pack(rangeslider_overlap, margin=(0, 15))
-
-
-        def rangeslider_penalty_onchange(s, *args) -> None:
-            assert isinstance(self.problem, RectanglePackingProblemGeometryBased)
-
-            rangeslider_penalty = self.main_menu.get_widget('rangeslider_penalty')
-            self.problem.penalty_factor = rangeslider_penalty.get_value()
-
-        rangeslider_penalty = self.main_menu.add.range_slider(
-            'Penalty',
-            rangeslider_id='rangeslider_penalty',
-            default=0.0,
-            range_values=(0, 1000),
-            increment=0.1,
-            onchange=rangeslider_penalty_onchange,
-            shadow_width=10
-        )
-        rangeslider_penalty.hide()
-        self.main_frame.pack(rangeslider_penalty, margin=(0, 15))
-        """
-
         label = self.algo_config_menu.add.label("Strategy",
                                                 label_id="selection_strategy_label",
                                                 background_color=pygame_menu.themes.TRANSPARENT_COLOR)
@@ -414,28 +371,19 @@ class RectanglePackingGUI(BaseGUI):
         def dropselect_selection_strategy_onchange(s, *args) -> None:
             self.stop_search()
 
-            assert isinstance(self.problem, (RPPGreedy, RPPGreedyFast))
+            assert isinstance(self.problem, RPPGreedy)
 
             dropselect_selection_strategy = self.algo_config_menu.get_widget('selection_strategy')
             self.problem.set_strategy(args[0])
 
-        """
-        items=[
-            ('Position', 'smallest_position_costs_strategy'),
-            ('Largest Area', 'largest_area_costs_strategy'),
-            ('Position + Largest Area', 'smallest_position_plus_largest_area_costs_strategy'),
-            ('Uniform', 'uniform_costs_strategy'),
-            ('Lowest Box ID', 'lowest_box_id_costs_strategy')
-        ],
-        """
         dropselect_selection_strategy = self.algo_config_menu.add.dropselect(
             title='',
 
             items=[
-                ('Largest First Top Left', 'largest_rectangle_first'),
-                ('Smallest First Top Left', 'smallest_rectangle_first'),
+                ('Largest First Top Left', 'largest_first_top_left'),
+                ('Smallest First Top Left', 'smallest_first_top_left'),
                 ('Lowest Box ID', 'lowest_box_id'),
-                ('Random', 'uniform_costs'),
+                ('Random', 'random'),
             ],
             dropselect_id='selection_strategy',
             onchange=dropselect_selection_strategy_onchange,
@@ -501,7 +449,6 @@ class RectanglePackingGUI(BaseGUI):
         self.algo_config_frame.pack(btn_close_algo_config_menu, margin=(0, 35))
 
         # Main Menu:
-
         self.main_frame = self.main_menu.add.frame_v(width=270, height=575,
                                                      padding=(15, 15),
                                                      background_color=self.colors["menu_bg"],
@@ -541,7 +488,6 @@ class RectanglePackingGUI(BaseGUI):
 
             btn_search = self.main_menu.get_widget('run_search')
             self.search_algorithm_name = args[0]
-            self.search = self.search_algorithms[self.search_algorithm_name]
 
             dropselect_neighborhood = self.algo_config_menu.get_widget('neighborhood')
             dropselect_neighborhood = self.algo_config_menu.get_widget('neighborhood')
@@ -825,8 +771,6 @@ class RectanglePackingGUI(BaseGUI):
 
         if isinstance(self.problem, RPPGreedy):
             sol = self.problem.get_empty_independence_set().corresponding_sol
-        elif isinstance(self.problem, RPPGreedyFast):
-            sol = self.problem.get_empty_solution()
         else:
             sol = self.problem.get_arbitrary_solution()
 
@@ -932,7 +876,6 @@ class RectanglePackingGUI(BaseGUI):
         self.set_and_animate_solution(sol)
 
     def set_and_animate_solution(self, sol: RPPSolution):
-
         # Identify modified rect and highlight it
         if isinstance(sol, RPPSolutionGeometryBased) and sol.move_pending:
             changed_rect_idx = sol.pending_move_params[0]
@@ -940,8 +883,6 @@ class RectanglePackingGUI(BaseGUI):
         elif isinstance(sol, RPPSolutionRuleBased):
             diff = (sol.rect_order != self.current_sol.rect_order)
             self.highlighted_rects[sol.moved_rect_ids] = True
-        elif isinstance(sol, RPPSolutionGreedy):
-            self.highlighted_rects[sol.last_put_rect] = True
 
         if self.animation_on:
             time.sleep(self.anim_sleep / 2)
