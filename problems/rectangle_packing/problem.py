@@ -434,11 +434,9 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
 
         # ---- Preprocessing: Determine a good rect selection order ----
         if np.any(sol.boxes_grid > 1):
-            rect_ids = self.get_overlap_rect_selection_order(sol.boxes_grid, sol.rectangle_fields, sol.box2rects)
-            # rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects,
-            #                                         occupancy_threshold=1.0,
-            #                                         keep_top_dogs=True)
-            # rect_ids = self.get_random_rect_selection_order()
+            rect_ids = self.get_overlap_rect_selection_order(sol.boxes_grid,
+                                                             sol.rectangle_fields,
+                                                             sol.box2rects)
         else:
             rect_ids = self.get_rect_selection_order(sol.box_occupancies, sol.box2rects,
                                                      occupancy_threshold=0.9,
