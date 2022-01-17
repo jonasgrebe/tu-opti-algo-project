@@ -6,7 +6,6 @@ from problems.neighborhood import NeighborhoodProblem, OptProblem
 from problems.rectangle_packing.solution import (
     RPPSolutionGeometryBased,
     RPPSolutionRuleBased,
-    RPPSolutionGreedy,
     RPPSolution
 )
 
@@ -218,7 +217,6 @@ class RPP(OptProblem, ABC):
         # box_pos_sum = (sol.locations // self.box_length).sum()
 
         x, y = (sol.locations // self.box_length).T
-
         if sol.move_pending:
             rect_idx, target_pos, _ = sol.pending_move_params
             target_x, target_y = target_pos // self.box_length
@@ -407,7 +405,9 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
         return list(itertools.chain(*list(self.get_next_neighbors(sol))))
 
     def get_overlap_rect_selection_order(self, boxes_grid, rectangle_fields, box2rects):
-        box_penalized_counts = (boxes_grid ** 2).sum(axis=(1, 2))
+        box_penalized_counts = (boxes_grid ** 2)
+        box_penalized_counts[box_penalized_counts <= 1] = 0
+        box_penalized_counts = box_penalized_counts.sum(axis=(1, 2))
         ordered_by_penalized_counts = box_penalized_counts.argsort()[::-1]
         rect_lists = list(box2rects.values())
 
@@ -580,17 +580,23 @@ class RPPGreedy(RPP, IndependenceProblem):
     def __init__(self, *args, **kwargs):
         super(RPPGreedy, self).__init__(*args, **kwargs)
         self.current_set = RPPIndependenceSet(self)
-        self.__costs = self.__costs_smallest_area_top_left
-        self.strategy_name = 'largest_rectangle_first'
+        self.strategy_name = 'largest_first_top_left'
+
+        self.IMPLEMENTED_STRATEGIES = [
+            'smallest_first_top_left',
+            'largest_first_top_left',
+            'lowest_box_id',
+            'random'
+        ]
 
     def get_sorted_elements(self) -> Iterator:
-        if self.__costs == self.__costs_smallest_area_top_left:
+        if self.strategy_name == 'smallest_first_top_left':
             return self.__get_sorted_by_area_asc()
-        if self.__costs == self.__costs_largest_area_top_left:
+        if self.strategy_name == 'largest_first_top_left':
             return self.__get_sorted_by_area_desc()
-        if self.__costs == self.__costs_lowest_box_id:
+        if self.strategy_name == 'lowest_box_id':
             return self.__get_sorted_by_lowest_box_id()
-        if self.__costs == self.__costs_uniform:
+        if self.strategy_name == 'random':
             return self.__get_random()
         else:
             raise NotImplementedError
@@ -651,26 +657,10 @@ class RPPGreedy(RPP, IndependenceProblem):
         return independence_set.corresponding_sol.all_rects_put()
 
     def set_strategy(self, strategy_name):
-        if strategy_name == 'smallest_rectangle_first':
-            self.__costs = self.__costs_smallest_area_top_left
-        elif strategy_name == 'largest_rectangle_first':
-            self.__costs = self.__costs_largest_area_top_left
-        elif strategy_name == 'lowest_box_id':
-            self.__costs = self.__costs_lowest_box_id
-        elif strategy_name == 'uniform_costs':
-            self.__costs = self.__costs_uniform
-        else:
-            raise NotImplementedError
-
+        assert strategy_name in self.IMPLEMENTED_STRATEGIES
         self.strategy_name = strategy_name
 
-    def costs(self, elements):
-        return self.__costs(elements)
-
-    def __smallest_position_costs(self, e):
-        _, target_pos, _ = e
-        return sum(target_pos)
-
+    """
     def __costs_smallest_area_top_left(self, element):
         rect_idx, location, rotation = element
         box_idx = self.current_set.corresponding_sol.get_box_idx_by_pos(location)
@@ -692,127 +682,7 @@ class RPPGreedy(RPP, IndependenceProblem):
 
     def __costs_uniform(self, element):
         return 1
-
-    def __smallest_position_plus_largest_area_costs(self, e):
-        rect_idx, target_pos, _ = e
-        return - np.prod(self.sizes[rect_idx]) + sum(target_pos)
-
-    def __lowest_box_id_costs(self, e):
-        _, target_pos, _ = e
-        x, y = target_pos // self.box_length
-        box_id = x + self.box_length * y
-        return box_id
-
-    def __uniform_costs(self, e):
-        return 0
-
-    def get_elements(self, sol):
-        """Returns a list of elements"""
-
-        elements = []
-        for rect_idx in range(self.num_rects):
-
-            for rotate in [False, True]:
-                # Identify all locations which are allowed for placement
-                relevant_locs, _ = self.place(
-                    rect_size=self.sizes[rect_idx] if not rotate else self.sizes[rect_idx][::-1],
-                    boxes_grid=sol.boxes_grid,
-                    selected_box_ids=np.arange(self.num_rects, dtype=int),
-                    box_coords=sol.box_coords,
-                    one_per_box=False)
-                # Prune abundant options
-                # n_choices = min(relevant_locs.shape[0], 64)
-                # relevant_locs = relevant_locs[np.random.choice(relevant_locs.shape[0], n_choices, replace=False)]
-                # relevant_locs = relevant_locs[:n_choices]
-
-                # add triplets (rect_idx, location, rotation) to elements
-                elements.extend([(rect_idx, loc, rotate) for loc in relevant_locs])
-
-        # shuffle to not influence the algorithm by the generation order of placement
-        np.random.shuffle(elements)
-        return elements
-
-    def filter_elements(self, sol, elements, e):
-        return list(filter(lambda x: x[0] != e[0], elements))
-
-    def is_feasible(self, sol):
-        raise NotImplementedError
-
-
-class RPPGreedyFast(RPP):
-    def __init__(self, *args, **kwargs):
-        super(RPPGreedyFast, self).__init__(*args, **kwargs)
-
-        self.__costs = self.__largest_rect_costs
-        self.strategy_name = 'largest_rectangle_first'
-
-    def get_elements(self):
-        return list(range(self.num_rects))
-
-    def set_strategy(self, strategy_name):
-        if strategy_name == 'largest_rectangle_first':
-            self.__costs = self.__largest_rect_costs
-        elif strategy_name == 'smallest_rectangle_first':
-            self.__costs = self.__smallest_rect_costs
-        elif strategy_name == 'random_rectangle':
-            self.__costs = self.__uniform_rect_costs
-        else:
-            raise NotImplementedError
-
-        self.strategy_name = strategy_name
-
-    def costs(self, rect_ids):
-        return self.__costs(rect_ids)
-
-    def __largest_rect_costs(self, rect_idx):
-        return - self.areas[rect_idx]
-
-    def __smallest_rect_costs(self, rect_idx):
-        return self.areas[rect_idx]
-
-    def __uniform_rect_costs(self, rect_idx):
-        return 0
-
-    def get_empty_solution(self):
-        sol = RPPSolutionGreedy(self)
-        sol.reset()
-        return sol
-
-    def get_expansion(self, sol: RPPSolutionGreedy):
-        """Returns expansion (partial sols obtained by appending an element) of the given (partial) sol."""
-        ordered_by_occupancy = sol.box_occupancies.argsort()[::-1]
-        ordered_by_idx = ordered_by_occupancy.sort()
-
-        box_capacity = self.box_length ** 2
-
-        # ---- Apply Greedy Sorting Strategy ----
-        rect_idxs = sol.get_remaining_elements()
-        next_rect_idx = sorted(rect_idxs, key=self.costs)[0]
-
-        # Select the n most promising boxes
-        max_occupancy = box_capacity - self.areas[next_rect_idx]
-        promising_boxes = sol.box_occupancies <= max_occupancy  # drop boxes which are too full
-
-        sorted_box_ids = ordered_by_occupancy
-        selected_box_ids = sorted_box_ids[promising_boxes[ordered_by_occupancy]]
-
-        for rotate in [False, True]:
-
-            # Identify all locations which are allowed for placement
-            relevant_locs, _ = self.place(
-                rect_size=self.sizes[next_rect_idx] if not rotate else self.sizes[next_rect_idx][::-1],
-                boxes_grid=sol.boxes_grid,
-                selected_box_ids=selected_box_ids,
-                box_coords=sol.box_coords)
-
-            if len(relevant_locs) > 0:
-                loc = relevant_locs[0]
-
-                new_sol = sol.copy()
-                new_sol.put_rect(next_rect_idx, loc, rotate)
-                # assert self.is_feasible(new_sol)
-
-                return new_sol
+    """
 
     def is_feasible(self, sol):
         raise NotImplementedError
