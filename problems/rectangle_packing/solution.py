@@ -337,15 +337,3 @@ class RPPSolutionRuleBased(RPPSolution):
         duplicate = super().copy(True)
         duplicate.rect_order = self.rect_order.copy()
         return duplicate
-
-
-class RPPSolutionGreedy(RPPSolution):
-    def __init__(self, problem):
-        super(RPPSolutionGreedy, self).__init__(problem)
-
-    def get_remaining_elements(self):
-        return np.where(~self.is_put)[0]
-
-    def add_element(self, e):
-        rect_idx, target_pos, rotated = e
-        self.put_rect(rect_idx, target_pos, rotated)
