@@ -290,7 +290,7 @@ class RectanglePackingGUI(BaseGUI):
             title='Algorithm Configuration'
         )
 
-        self.algo_config_frame = self.algo_config_menu.add.frame_v(width=350, height=400,
+        self.algo_config_frame = self.algo_config_menu.add.frame_v(width=350, height=350,
                                                                    padding=(15, 15),
                                                                    background_color=self.colors["menu_bg"],
                                                                    align=pygame_menu.locals.ALIGN_RIGHT)
@@ -449,7 +449,7 @@ class RectanglePackingGUI(BaseGUI):
         self.algo_config_frame.pack(btn_close_algo_config_menu, margin=(0, 35))
 
         # Main Menu:
-        self.main_frame = self.main_menu.add.frame_v(width=270, height=575,
+        self.main_frame = self.main_menu.add.frame_v(width=270, height=625,
                                                      padding=(15, 15),
                                                      background_color=self.colors["menu_bg"],
                                                      align=pygame_menu.locals.ALIGN_RIGHT)
@@ -669,7 +669,12 @@ class RectanglePackingGUI(BaseGUI):
 
     def __get_menu_bounds(self):
         current_menu = self.main_menu.get_current()
-        displayed_frame = self.main_frame if current_menu == self.main_menu else self.problem_config_frame
+        if current_menu == self.main_menu:
+            displayed_frame = self.main_frame
+        elif current_menu == self.problem_config_menu:
+            displayed_frame = self.problem_config_frame
+        else:
+            displayed_frame = self.algo_config_frame
         x, y = displayed_frame.get_position(apply_padding=True)
         w = displayed_frame.get_width()
         h = displayed_frame.get_height()

@@ -6,7 +6,8 @@ from problems.neighborhood import NeighborhoodProblem, OptProblem
 from problems.rectangle_packing.solution import (
     RPPSolutionGeometryBased,
     RPPSolutionRuleBased,
-    RPPSolution
+    RPPSolution,
+    get_num_columns
 )
 
 import numpy as np
@@ -392,7 +393,7 @@ class RPPGeometryBased(RPP, NeighborhoodProblem):
         if self.relaxation_enabled:
             locations = np.zeros((self.num_rects, 2), dtype=np.int)
         else:
-            num_cols = int(np.ceil(np.sqrt(self.num_rects)))
+            num_cols = get_num_columns(self.num_rects)
             x_locations = np.arange(self.num_rects) % num_cols
             y_locations = np.arange(self.num_rects) // num_cols
             locations = np.stack([x_locations, y_locations], axis=1) * self.box_length
@@ -637,15 +638,6 @@ class RPPGreedy(RPP, IndependenceProblem):
             element = (rect_idx, location, rotation)
             yield element
 
-    # def __get_sorted_by_xy(self) -> Iterator:
-    #     sol = self.current_set.corresponding_sol
-    #     while not self.is_basis(self.current_set):
-    #         rect_idx = ...
-    #         location = ...
-    #         rotation = ...
-    #         element = (rect_idx, location, rotation)
-    #         yield element
-
     def get_empty_independence_set(self) -> RPPIndependenceSet:
         self.current_set = RPPIndependenceSet(self)
         return self.current_set
@@ -654,13 +646,12 @@ class RPPGreedy(RPP, IndependenceProblem):
         return rects_correctly_placed(independence_set.corresponding_sol)
 
     def is_basis(self, independence_set: RPPIndependenceSet):
-        return independence_set.corresponding_sol.all_rects_put()
+        return independence_set.corresponding_sol.all_rects_put() and self.is_independent(independence_set)
 
     def set_strategy(self, strategy_name):
         assert strategy_name in self.IMPLEMENTED_STRATEGIES
         self.strategy_name = strategy_name
 
-    """
     def __costs_smallest_area_top_left(self, element):
         rect_idx, location, rotation = element
         box_idx = self.current_set.corresponding_sol.get_box_idx_by_pos(location)
@@ -682,10 +673,9 @@ class RPPGreedy(RPP, IndependenceProblem):
 
     def __costs_uniform(self, element):
         return 1
-    """
 
-    def is_feasible(self, sol):
-        raise NotImplementedError
+    def is_feasible(self, independence_set: RPPIndependenceSet):
+        return self.is_basis(independence_set)
 
 
 def occupancy_heuristic(sol: RPPSolution):

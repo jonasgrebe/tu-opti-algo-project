@@ -36,4 +36,5 @@ class IndependenceProblem(OptProblem):
 
     @abstractmethod
     def is_basis(self, independence_set: IndependenceSet):
+        """Returns whether independence_set is independent and maximal."""
         raise NotImplementedError

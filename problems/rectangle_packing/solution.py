@@ -42,7 +42,7 @@ class RPPSolution(Solution):
         self.is_put = np.zeros(self.problem.num_rects, dtype=np.bool)
 
         self.box_coords = np.zeros((self.problem.num_rects, 2), dtype=np.int)
-        num_cols = int(np.ceil(np.sqrt(self.problem.num_rects)))
+        num_cols = get_num_columns(self.problem.num_rects)
         self.box_coords[:, 0] = np.arange(self.problem.num_rects) % num_cols
         self.box_coords[:, 1] = np.arange(self.problem.num_rects) // num_cols
         self.box_ids = {tuple(box): idx for idx, box in enumerate(self.box_coords)}
@@ -170,32 +170,6 @@ class RPPSolution(Solution):
 
     def is_complete(self):
         return np.all(self.is_put)
-
-
-def true_copy(from_sol: RPPSolution, to_sol: RPPSolution):
-    to_sol.locations = from_sol.locations.copy()
-    to_sol.rotations = from_sol.rotations.copy()
-    to_sol.is_put = from_sol.is_put.copy()
-    to_sol.box_ids = from_sol.box_ids.copy()
-    to_sol.box_coords = from_sol.box_coords.copy()
-    to_sol.box_occupancies = from_sol.box_occupancies.copy()
-    to_sol.box_rect_cnts = from_sol.box_rect_cnts.copy()
-    to_sol.box2rects = copy.deepcopy(from_sol.box2rects)
-    to_sol.boxes_grid = from_sol.boxes_grid.copy()
-    to_sol.last_put_rect = from_sol.last_put_rect
-
-
-def ref_copy(from_sol: RPPSolution, to_sol: RPPSolution):
-    to_sol.locations = from_sol.locations
-    to_sol.rotations = from_sol.rotations
-    to_sol.is_put = from_sol.is_put
-    to_sol.box_ids = from_sol.box_ids
-    to_sol.box_coords = from_sol.box_coords
-    to_sol.box_occupancies = from_sol.box_occupancies
-    to_sol.box_rect_cnts = from_sol.box_rect_cnts
-    to_sol.box2rects = from_sol.box2rects
-    to_sol.boxes_grid = from_sol.boxes_grid
-    to_sol.last_put_rect = from_sol.last_put_rect
 
 
 class RPPSolutionGeometryBased(RPPSolution):
@@ -337,3 +311,33 @@ class RPPSolutionRuleBased(RPPSolution):
         duplicate = super().copy(True)
         duplicate.rect_order = self.rect_order.copy()
         return duplicate
+
+
+def true_copy(from_sol: RPPSolution, to_sol: RPPSolution):
+    to_sol.locations = from_sol.locations.copy()
+    to_sol.rotations = from_sol.rotations.copy()
+    to_sol.is_put = from_sol.is_put.copy()
+    to_sol.box_ids = from_sol.box_ids.copy()
+    to_sol.box_coords = from_sol.box_coords.copy()
+    to_sol.box_occupancies = from_sol.box_occupancies.copy()
+    to_sol.box_rect_cnts = from_sol.box_rect_cnts.copy()
+    to_sol.box2rects = copy.deepcopy(from_sol.box2rects)
+    to_sol.boxes_grid = from_sol.boxes_grid.copy()
+    to_sol.last_put_rect = from_sol.last_put_rect
+
+
+def ref_copy(from_sol: RPPSolution, to_sol: RPPSolution):
+    to_sol.locations = from_sol.locations
+    to_sol.rotations = from_sol.rotations
+    to_sol.is_put = from_sol.is_put
+    to_sol.box_ids = from_sol.box_ids
+    to_sol.box_coords = from_sol.box_coords
+    to_sol.box_occupancies = from_sol.box_occupancies
+    to_sol.box_rect_cnts = from_sol.box_rect_cnts
+    to_sol.box2rects = from_sol.box2rects
+    to_sol.boxes_grid = from_sol.boxes_grid
+    to_sol.last_put_rect = from_sol.last_put_rect
+
+
+def get_num_columns(num_rects: int):
+    return min(int(np.ceil(np.sqrt(num_rects))), 22)  # max. 22 cols fit on screen
