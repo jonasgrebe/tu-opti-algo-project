@@ -1,5 +1,5 @@
 # Interactive GUI for the Rectangle Packing Problem
-![GUI screenshot](https://github.com/jonasgrebe/tu-opti-algo-project/blob/main/docs/automatic_solve.gif)
+![GUI screenshot](https://github.com/jonasgrebe/tu-opti-algo-project/blob/main/docs/screenshot.png)
 
 ## Rectangle Packing Problem (RPP)
 The _Rectangle Packing Problem (RPP)_ describes the issue of putting n (almost arbitrary) rectangles into N squares (boxes) such that N is minimized.
