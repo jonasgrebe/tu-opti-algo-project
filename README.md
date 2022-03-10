@@ -1,21 +1,21 @@
 # Interactive GUI for the Rectangle Packing Problem
-![alt text](https://github.com/jonasgrebe/tu-opti-algo-project/docs/screenshot.png "GUI screenshot")
+![GUI screenshot](https://github.com/jonasgrebe/tu-opti-algo-project/blob/main/docs/automatic_solve.gif)
 
 ## Rectangle Packing Problem (RPP)
 The _Rectangle Packing Problem (RPP)_ describes the issue of putting n (almost arbitrary) rectangles into N squares (boxes) such that N is minimized.
 
 ## Features
 ### Solving the RPP automatically
-![alt text](https://github.com/jonasgrebe/tu-opti-algo-project/docs/automatic_solve.gif "Automatic RPP solving")
-![alt text](https://github.com/jonasgrebe/tu-opti-algo-project/docs/automatic_solve_2.gif "Automatic RPP solving")
+![Automatic RPP solving](https://github.com/jonasgrebe/tu-opti-algo-project/blob/main/docs/automatic_solve.gif)
+![Automatic RPP solving](https://github.com/jonasgrebe/tu-opti-algo-project/blob/main/docs/automatic_solve_2.gif)
 Automatic solving using one of two different and efficiently implemented algorithmic approaches (local search and greedy search) with multiple tuning possibilities
 
 ### Solving the RPP by hand
-![alt text](https://github.com/jonasgrebe/tu-opti-algo-project/docs/manual_solve.gif "Manual RPP solving")
+![Manual RPP solving](https://github.com/jonasgrebe/tu-opti-algo-project/blob/main/docs/manual_solve.gif)
 
 ### Defining an instance of the RPP
 By setting the hyperparameters such as number and sizes of rectangles, box size, etc.
-![alt text](https://github.com/jonasgrebe/tu-opti-algo-project/docs/configuration.gif "Problem configuration")
+![Problem configuration](https://github.com/jonasgrebe/tu-opti-algo-project/blob/main/docs/configuration.gif)
 
 
 ## How to use
