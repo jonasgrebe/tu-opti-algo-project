@@ -1,5 +1,5 @@
 # Interactive GUI for the Rectangle Packing Problem
-Project for the lecture "Optimierungsalgorithmen" at the Technical University Darmstadt.
+Project by [Mark Rothermel](https://github.com/MaggiR) and me for the lecture "Optimierungsalgorithmen" at the Technical University Darmstadt.
 
 
 <img src="https://github.com/jonasgrebe/tu-opti-algo-project/blob/main/docs/screenshot.png" width=800 title="GUI Screenshot">
